@@ -445,6 +445,7 @@
 				DEVELOPMENT_TEAM = NSL9SJ8899;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = 6808FinalProject/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -466,6 +467,7 @@
 				DEVELOPMENT_TEAM = NSL9SJ8899;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = 6808FinalProject/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
