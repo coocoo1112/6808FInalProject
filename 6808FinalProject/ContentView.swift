@@ -8,10 +8,18 @@
 import SwiftUI
 
 struct ContentView: View {
+    @State private var showDetails = false
     var body: some View {
         Text("Hello, world!")
             .padding()
+        Button {
+            print("Image tapped!")
+        } label: {
+            Text("Play Sound")
+        }
     }
+    
+    
 }
 
 struct ContentView_Previews: PreviewProvider {
