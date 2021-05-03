@@ -18,6 +18,10 @@ import AVFoundation
 import AudioUnit
 
 final class RecordAudio: NSObject {
+// call setupAudioSessionForRecording() during controlling view load
+// call startRecording() to start recording in a later UI call
+var gTmp0 = 0
+
 
     var auAudioUnit: AUAudioUnit! = nil
 
@@ -33,7 +37,7 @@ final class RecordAudio: NSObject {
     var circInIdx  : Int    =  0            // sample input  index
     var circOutIdx : Int    =  0            // sample output index
 
-    var audioLevel : Float  = 0.0
+    var audioLevel: Float   = 0.0
 
     private var micPermissionRequested  = false
     private var micPermissionGranted    = false
@@ -60,17 +64,17 @@ final class RecordAudio: NSObject {
             channels: 1,                                         // 1 or 2
             interleaved: true )                                 // true for interleaved stereo
 
-        if (auAudioUnit == nil) {
+        if auAudioUnit == nil {
             setupRemoteIOAudioUnitForRecord(audioFormat: audioFormat!)
         }
 
         renderBlock = auAudioUnit.renderBlock  //  returns AURenderBlock()
 
-        if (   enableRecording
+        if    enableRecording
             && micPermissionGranted
             && audioSetupComplete
             && audioSessionActive
-            && isRecording == false ) {
+            && isRecording == false {
 
             auAudioUnit.inputHandler = { (actionFlags, timestamp, frameCount, inputBusNumber) in
                 if let block = self.renderBlock {       // AURenderBlock?
@@ -81,7 +85,7 @@ final class RecordAudio: NSObject {
                             mDataByteSize: 0,
                             mData: nil))
 
-                    let err : OSStatus = block(actionFlags,
+                    let err: OSStatus = block(actionFlags,
                                                timestamp,
                                                frameCount,
                                                inputBusNumber,
@@ -90,7 +94,7 @@ final class RecordAudio: NSObject {
                     if err == noErr {
                         // save samples from current input buffer to circular buffer
                         self.recordMicrophoneInputSamples(
-                            inputDataList:  &bufferList,
+                            inputDataList: &bufferList,
                             frameCount: UInt32(frameCount) )
                     }
                 }
@@ -113,11 +117,11 @@ final class RecordAudio: NSObject {
 
     func stopRecording() {
 
-        if (isRecording) {
+        if isRecording {
             auAudioUnit.stopHardware()
             isRecording = false
         }
-        if (audioSessionActive) {
+        if audioSessionActive {
             let audioSession = AVAudioSession.sharedInstance()
             do {
                 try audioSession.setActive(false)
@@ -128,35 +132,34 @@ final class RecordAudio: NSObject {
     }
 
     private func recordMicrophoneInputSamples(   // process RemoteIO Buffer from mic input
-        inputDataList : UnsafeMutablePointer<AudioBufferList>,
-        frameCount : UInt32 )
-    {
+        inputDataList: UnsafeMutablePointer<AudioBufferList>,
+        frameCount: UInt32 ) {
         let inputDataPtr = UnsafeMutableAudioBufferListPointer(inputDataList)
-        let mBuffers : AudioBuffer = inputDataPtr[0]
+        let mBuffers: AudioBuffer = inputDataPtr[0]
 
         // Microphone Input Analysis
         // let data      = UnsafePointer<Int16>(mBuffers.mData)
         let bufferPointer = UnsafeMutableRawPointer(mBuffers.mData)
         if let bptr = bufferPointer {
             let dataArray = bptr.assumingMemoryBound(to: Float32.self)
-            var sum : Float32 = 0.0
+            var sum: Float32 = 0.0
             var j = self.circInIdx
             let m = self.circBuffSize
             for i in 0..<Int(frameCount/mBuffers.mNumberChannels) {
                 for ch in 0..<Int(mBuffers.mNumberChannels) {
                     let x = Float32(dataArray[i+ch])   // copy channel sample
                     self.circBuffer[j+ch] = x
-                    sum += x*x;
+                    sum += x*x
                 }
 
-                j += Int(mBuffers.mNumberChannels) ;
+                j += Int(mBuffers.mNumberChannels)
                 if j >= m { j = 0 }                // into circular buffer
             }
             self.circInIdx = j              // circular index will always be less than size
             // measuredMicVol_1 = sqrt( Float(sum) / Float(count) ) // scaled volume
             if sum > 0.0 && frameCount > 0 {
                 let tmp = 5.0 * (logf(sum / Float32(frameCount)) + 20.0)
-                let r : Float32 = 0.2
+                let r: Float32 = 0.2
                 audioLevel = r * tmp + (1.0 - r) * audioLevel
             }
         }
@@ -168,10 +171,10 @@ final class RecordAudio: NSObject {
 
             let audioSession = AVAudioSession.sharedInstance()
 
-            if (micPermissionGranted == false) {
-                if (micPermissionRequested == false) {
+            if micPermissionGranted == false {
+                if micPermissionRequested == false {
                     micPermissionRequested = true
-                    audioSession.requestRecordPermission({(granted: Bool)-> Void in
+                    audioSession.requestRecordPermission({(granted: Bool) -> Void in
                         if granted {
                             self.micPermissionGranted = true
                             self.startRecording()
@@ -208,7 +211,7 @@ final class RecordAudio: NSObject {
     }
 
     // find and set up the sample format for the RemoteIO Audio Unit
-    private func setupRemoteIOAudioUnitForRecord(audioFormat : AVAudioFormat) {
+    private func setupRemoteIOAudioUnitForRecord(audioFormat: AVAudioFormat) {
 
         do {
             let audioComponentDescription = AudioComponentDescription(
@@ -231,14 +234,14 @@ final class RecordAudio: NSObject {
         }
     }
 
-    private func myAudioSessionInterruptionHandler(notification: Notification) -> Void {
+    private func myAudioSessionInterruptionHandler(notification: Notification) {
         let interuptionDict = notification.userInfo
         if let interuptionType = interuptionDict?[AVAudioSessionInterruptionTypeKey] {
             let interuptionVal = AVAudioSession.InterruptionType(
                 rawValue: (interuptionType as AnyObject).uintValue )
-            if (interuptionVal == AVAudioSession.InterruptionType.began) {
+            if interuptionVal == AVAudioSession.InterruptionType.began {
                 // [self beginInterruption];
-                if (isRecording) {
+                if isRecording {
                     auAudioUnit.stopHardware()
                     isRecording = false
                     let audioSession = AVAudioSession.sharedInstance()
@@ -250,14 +253,14 @@ final class RecordAudio: NSObject {
                     }
                     audioInterrupted = true
                 }
-            } else if (interuptionVal == AVAudioSession.InterruptionType.ended) {
+            } else if interuptionVal == AVAudioSession.InterruptionType.ended {
                 // [self endInterruption];
-                if (audioInterrupted) {
+                if audioInterrupted {
                     let audioSession = AVAudioSession.sharedInstance()
                     do {
                         try audioSession.setActive(true)
                         audioSessionActive = true
-                        if (auAudioUnit.renderResourcesAllocated == false) {
+                        if auAudioUnit.renderResourcesAllocated == false {
                             try auAudioUnit.allocateRenderResources()
                         }
                         try auAudioUnit.startHardware()
