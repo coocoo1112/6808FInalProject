@@ -3,11 +3,14 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 50;
+	objectVersion = 52;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		5C88B994263DE00C00887CC2 /* chirp.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = 5C88B993263DE00C00887CC2 /* chirp.mp3 */; };
+		5C88B996263DE73A00887CC2 /* RecordAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C88B995263DE73A00887CC2 /* RecordAudio.swift */; };
+		5C88B99A2640667100887CC2 /* SwiftUICharts in Frameworks */ = {isa = PBXBuildFile; productRef = 5C88B9992640667100887CC2 /* SwiftUICharts */; };
+		5C88B99D2640747700887CC2 /* Surge in Frameworks */ = {isa = PBXBuildFile; productRef = 5C88B99C2640747700887CC2 /* Surge */; };
 		E98F8A71263DD5B200C49C31 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E98F8A70263DD5B200C49C31 /* AppDelegate.swift */; };
 		E98F8A73263DD5B200C49C31 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E98F8A72263DD5B200C49C31 /* SceneDelegate.swift */; };
 		E98F8A75263DD5B200C49C31 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E98F8A74263DD5B200C49C31 /* ContentView.swift */; };
@@ -37,6 +40,7 @@
 
 /* Begin PBXFileReference section */
 		5C88B993263DE00C00887CC2 /* chirp.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = chirp.mp3; sourceTree = "<group>"; };
+		5C88B995263DE73A00887CC2 /* RecordAudio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordAudio.swift; sourceTree = "<group>"; };
 		E98F8A6D263DD5B200C49C31 /* 6808FinalProject.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = 6808FinalProject.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E98F8A70263DD5B200C49C31 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		E98F8A72263DD5B200C49C31 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -58,6 +62,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5C88B99A2640667100887CC2 /* SwiftUICharts in Frameworks */,
+				5C88B99D2640747700887CC2 /* Surge in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -104,6 +110,7 @@
 				E98F8A70263DD5B200C49C31 /* AppDelegate.swift */,
 				E98F8A72263DD5B200C49C31 /* SceneDelegate.swift */,
 				E98F8A74263DD5B200C49C31 /* ContentView.swift */,
+				5C88B995263DE73A00887CC2 /* RecordAudio.swift */,
 				E98F8A76263DD5B400C49C31 /* Assets.xcassets */,
 				5C88B993263DE00C00887CC2 /* chirp.mp3 */,
 				E98F8A7B263DD5B400C49C31 /* LaunchScreen.storyboard */,
@@ -155,6 +162,10 @@
 			dependencies = (
 			);
 			name = 6808FinalProject;
+			packageProductDependencies = (
+				5C88B9992640667100887CC2 /* SwiftUICharts */,
+				5C88B99C2640747700887CC2 /* Surge */,
+			);
 			productName = 6808FinalProject;
 			productReference = E98F8A6D263DD5B200C49C31 /* 6808FinalProject.app */;
 			productType = "com.apple.product-type.application";
@@ -226,6 +237,10 @@
 				Base,
 			);
 			mainGroup = E98F8A64263DD5B200C49C31;
+			packageReferences = (
+				5C88B9982640667100887CC2 /* XCRemoteSwiftPackageReference "ChartView" */,
+				5C88B99B2640747700887CC2 /* XCRemoteSwiftPackageReference "Surge" */,
+			);
 			productRefGroup = E98F8A6E263DD5B200C49C31 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -271,6 +286,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E98F8A71263DD5B200C49C31 /* AppDelegate.swift in Sources */,
+				5C88B996263DE73A00887CC2 /* RecordAudio.swift in Sources */,
 				E98F8A73263DD5B200C49C31 /* SceneDelegate.swift in Sources */,
 				E98F8A75263DD5B200C49C31 /* ContentView.swift in Sources */,
 			);
@@ -603,6 +619,38 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		5C88B9982640667100887CC2 /* XCRemoteSwiftPackageReference "ChartView" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/AppPear/ChartView";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.5.5;
+			};
+		};
+		5C88B99B2640747700887CC2 /* XCRemoteSwiftPackageReference "Surge" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Jounce/Surge";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.3.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		5C88B9992640667100887CC2 /* SwiftUICharts */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5C88B9982640667100887CC2 /* XCRemoteSwiftPackageReference "ChartView" */;
+			productName = SwiftUICharts;
+		};
+		5C88B99C2640747700887CC2 /* Surge */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5C88B99B2640747700887CC2 /* XCRemoteSwiftPackageReference "Surge" */;
+			productName = Surge;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = E98F8A65263DD5B200C49C31 /* Project object */;
 }

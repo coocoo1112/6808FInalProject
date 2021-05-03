@@ -16,12 +16,13 @@
 import Foundation
 import AVFoundation
 import AudioUnit
+import Surge
 
-final class RecordAudio: NSObject {
 // call setupAudioSessionForRecording() during controlling view load
 // call startRecording() to start recording in a later UI call
 var gTmp0 = 0
 
+final class RecordAudio: NSObject, ObservableObject {
 
     var auAudioUnit: AUAudioUnit! = nil
 
@@ -30,12 +31,22 @@ var gTmp0 = 0
     var audioSetupComplete  = false
     var isRecording         = false
 
-    var sampleRate : Double =  48000.0      // desired audio sample rate
+    var isPlaying           = false
+
+    // HACK so we don't run the FFT too often
+    var cycleCount          = 0
+
+    var sampleRate: Double  =  48000.0      // desired audio sample rate
 
     let circBuffSize        =  32768        // lock-free circular fifo/buffer size
     var circBuffer          = [Float](repeating: 0, count: 32768)
-    var circInIdx  : Int    =  0            // sample input  index
-    var circOutIdx : Int    =  0            // sample output index
+    // HACK need to make sure this runs on the main UI thread somehow
+    // not sure if this is what you're supposed to do
+//    @Published var publishedCircBuffer          = [Float](repeating: 0, count: 32768)
+    let fftPlotSize         = 256
+    @Published var fftPlot  = [Float](repeating: 0, count: 256)
+    var circInIdx: Int      =  0            // sample input  index
+    var circOutIdx: Int     =  0            // sample output index
 
     var audioLevel: Float   = 0.0
 
@@ -45,7 +56,26 @@ var gTmp0 = 0
     // for restart from audio interruption notification
     private var audioInterrupted        = false
 
-    private var renderBlock : AURenderBlock? = nil
+    private var renderBlock: AURenderBlock?
+
+    func startPlayback(soundFileURL: URL) {
+        if isPlaying { return }
+
+        if audioSessionActive == false {
+            // configure and activate Audio Session, this might change the sampleRate
+            setupAudioSessionForRecording()
+        }
+
+        do {
+            player = try AVAudioPlayer(
+                contentsOf: soundFileURL
+            )
+
+            player?.play()
+        } catch {   // error handling placeholder
+            return
+        }
+    }
 
     func startRecording() {
 
@@ -163,6 +193,34 @@ var gTmp0 = 0
                 audioLevel = r * tmp + (1.0 - r) * audioLevel
             }
         }
+
+        // HACK fft takes too long, so make sure we don't call it too often
+        // otherwise the UI seems to slow down
+        let CYCLES_PER_FFT = 16
+        if cycleCount % CYCLES_PER_FFT == 0 {
+            DispatchQueue.global().async { [self] in
+                let fft = Surge.fft(circBuffer)
+
+                // reduce FFT size, since we don't want to plot tens of thousands of points
+                let kernelSize = circBuffSize / fftPlotSize
+                var newFftPlot = [Float](repeating: 0, count: fftPlotSize)
+
+                for i in 0..<fftPlotSize {
+    //                newFftPlot[i] = Surge.sum(fft[i * kernelSize..<(i + 1) * kernelSize])
+                    // actually, the FFT is mirrored (correctly?)
+                    // https://dsp.stackexchange.com/questions/4825/why-is-the-fft-mirrored
+                    // so we only need to take half of it
+                    newFftPlot[i] = Surge.sum(fft[i * kernelSize / 2..<(i + 1) * kernelSize / 2])
+                }
+
+                // update UI thread
+                DispatchQueue.main.async { [self] in
+                    fftPlot = newFftPlot
+                }
+            }
+        }
+
+        cycleCount += 1
     }
 
     // set up and activate Audio Session
@@ -190,7 +248,7 @@ var gTmp0 = 0
             }
 
             if enableRecording {
-                try audioSession.setCategory(AVAudioSession.Category.record)
+                try audioSession.setCategory(AVAudioSession.Category.playAndRecord)
             }
             let preferredIOBufferDuration = 0.0053  // 5.3 milliseconds = 256 samples
             try audioSession.setPreferredSampleRate(sampleRate) // at 48000.0
@@ -220,7 +278,6 @@ var gTmp0 = 0
                 componentManufacturer: kAudioUnitManufacturer_Apple,
                 componentFlags: 0,
                 componentFlagsMask: 0 )
-
 
             try auAudioUnit = AUAudioUnit(componentDescription: audioComponentDescription)
 
