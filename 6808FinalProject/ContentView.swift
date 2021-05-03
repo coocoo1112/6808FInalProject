@@ -7,6 +7,7 @@
 
 import AVFoundation
 import SwiftUI
+import SwiftUICharts
 
 var player: AVAudioPlayer?
 
@@ -27,6 +28,9 @@ struct ContentView: View {
         } label: {
             Text("Start playback")
         }
+
+        // expects a double array so we have to do this annoying conversion
+        LineView(data: recorder.fftPlot.map {Double($0)}, title: "FFT")
     }
 }
 
