@@ -38,8 +38,8 @@ final class RecordAudio: NSObject, ObservableObject {
 
     var sampleRate: Double  =  48000.0      // desired audio sample rate
 
-    let circBuffSize        =  32768        // lock-free circular fifo/buffer size
-    var circBuffer          = [Float](repeating: 0, count: 32768)
+    let circBuffSize        =  256//32768/4        // lock-free circular fifo/buffer size
+    var circBuffer          = [Float](repeating: 0, count: 256)//32768/4)
     // HACK need to make sure this runs on the main UI thread somehow
     // not sure if this is what you're supposed to do
 //    @Published var publishedCircBuffer          = [Float](repeating: 0, count: 32768)
@@ -70,14 +70,40 @@ final class RecordAudio: NSObject, ObservableObject {
             player = try AVAudioPlayer(
                 contentsOf: soundFileURL
             )
+            print("duration: " + String(player!.duration))
+            player?.play()
+        } catch {   // error handling placeholder
+            return
+        }
+    }
+    
+    func toNSData(PCMBuffer: AVAudioPCMBuffer) -> NSData {
+        let channelCount = 1  // given PCMBuffer channel count is 1
+        var channels = UnsafeBufferPointer(start: PCMBuffer.floatChannelData, count: channelCount)
+        var ch0Data = NSData(bytes: channels[0], length:Int(PCMBuffer.frameCapacity * PCMBuffer.format.streamDescription.pointee.mBytesPerFrame))
+        return ch0Data
+    }
+    
+    func startPlayback(soundFileBuf: AVAudioPCMBuffer) {
+        if isPlaying { return }
 
+        if audioSessionActive == false {
+            // configure and activate Audio Session, this might change the sampleRate
+            setupAudioSessionForRecording()
+        }
+
+        do {
+            player = try AVAudioPlayer(
+                data: toNSData(PCMBuffer: soundFileBuf) as Data 
+            )
+            print("duration: " + String(player!.duration))
             player?.play()
         } catch {   // error handling placeholder
             return
         }
     }
 
-    func startRecording() {
+    func startRecording(startTime: CFAbsoluteTime) {
 
         if isRecording { return }
 
@@ -129,7 +155,8 @@ final class RecordAudio: NSObject, ObservableObject {
                     }
                 }
             }
-
+            
+            print(CFAbsoluteTimeGetCurrent() - startTime)
             auAudioUnit.isInputEnabled  = true
 
             do {
@@ -144,7 +171,46 @@ final class RecordAudio: NSObject, ObservableObject {
             }
         }
     }
+    
+    
+    func resumeRecording(){
+        isRecording = true
+//        if !isRecording {
+//            do{
+//            try auAudioUnit.startHardware()
+//            } catch let e{
+//                print(e)
+//            }
+//            isRecording = false
+//        }
+//        if !audioSessionActive {
+//            let audioSession = AVAudioSession.sharedInstance()
+//            do {
+//                try audioSession.setActive(true)
+//            } catch /* let error as NSError */ {
+//            }
+//            audioSessionActive = true
+//        }
+    }
 
+    
+    func pauseRecording(){
+        isRecording = false
+//        if isRecording {
+//            auAudioUnit.stopHardware()
+//            isRecording = false
+//        }
+//        if audioSessionActive {
+//            let audioSession = AVAudioSession.sharedInstance()
+//            do {
+//                try audioSession.setActive(false)
+//            } catch /* let error as NSError */ {
+//            }
+//            audioSessionActive = false
+//        }
+    }
+    
+    
     func stopRecording() {
 
         if isRecording {
@@ -164,6 +230,9 @@ final class RecordAudio: NSObject, ObservableObject {
     private func recordMicrophoneInputSamples(   // process RemoteIO Buffer from mic input
         inputDataList: UnsafeMutablePointer<AudioBufferList>,
         frameCount: UInt32 ) {
+        if !isRecording{
+            return
+        }
         let inputDataPtr = UnsafeMutableAudioBufferListPointer(inputDataList)
         let mBuffers: AudioBuffer = inputDataPtr[0]
 
@@ -206,7 +275,7 @@ final class RecordAudio: NSObject, ObservableObject {
                 var newFftPlot = [Float](repeating: 0, count: fftPlotSize)
 
                 for i in 0..<fftPlotSize {
-    //                newFftPlot[i] = Surge.sum(fft[i * kernelSize..<(i + 1) * kernelSize])
+                    // newFftPlot[i] = Surge.sum(fft[i * kernelSize..<(i + 1) * kernelSize])
                     // actually, the FFT is mirrored (correctly?)
                     // https://dsp.stackexchange.com/questions/4825/why-is-the-fft-mirrored
                     // so we only need to take half of it
@@ -235,7 +304,7 @@ final class RecordAudio: NSObject, ObservableObject {
                     audioSession.requestRecordPermission({(granted: Bool) -> Void in
                         if granted {
                             self.micPermissionGranted = true
-                            self.startRecording()
+                            self.startRecording(startTime: CFAbsoluteTimeGetCurrent())
                             return
                         } else {
                             self.enableRecording = false
