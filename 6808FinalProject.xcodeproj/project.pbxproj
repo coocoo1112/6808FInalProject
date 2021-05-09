@@ -19,12 +19,13 @@
 		E98F8A7D263DD5B400C49C31 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = E98F8A7B263DD5B400C49C31 /* LaunchScreen.storyboard */; };
 		E98F8A88263DD5B500C49C31 /* _808FinalProjectTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E98F8A87263DD5B500C49C31 /* _808FinalProjectTests.swift */; };
 		E98F8A93263DD5B500C49C31 /* _808FinalProjectUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E98F8A92263DD5B500C49C31 /* _808FinalProjectUITests.swift */; };
+		E9B9ADA22645D1090044B5F4 /* sweep3.wav in Resources */ = {isa = PBXBuildFile; fileRef = E9B9AD9C2645D1090044B5F4 /* sweep3.wav */; };
+		E9B9ADA32645D1090044B5F4 /* chirp3.wav in Resources */ = {isa = PBXBuildFile; fileRef = E9B9AD9D2645D1090044B5F4 /* chirp3.wav */; };
+		E9B9ADA42645D1090044B5F4 /* sweep1.wav in Resources */ = {isa = PBXBuildFile; fileRef = E9B9AD9E2645D1090044B5F4 /* sweep1.wav */; };
+		E9B9ADA52645D1090044B5F4 /* chirp2.wav in Resources */ = {isa = PBXBuildFile; fileRef = E9B9AD9F2645D1090044B5F4 /* chirp2.wav */; };
+		E9B9ADA62645D1090044B5F4 /* chirp.wav in Resources */ = {isa = PBXBuildFile; fileRef = E9B9ADA02645D1090044B5F4 /* chirp.wav */; };
+		E9B9ADA72645D1090044B5F4 /* sweep2.wav in Resources */ = {isa = PBXBuildFile; fileRef = E9B9ADA12645D1090044B5F4 /* sweep2.wav */; };
 		E9EE56592640C128004616A6 /* sweep1.wav in Resources */ = {isa = PBXBuildFile; fileRef = E9EE56582640C128004616A6 /* sweep1.wav */; };
-		E9EE565B2640C16F004616A6 /* sweep2.wav in Resources */ = {isa = PBXBuildFile; fileRef = E9EE565A2640C16F004616A6 /* sweep2.wav */; };
-		E9EE565D2640C2A0004616A6 /* sweep3.wav in Resources */ = {isa = PBXBuildFile; fileRef = E9EE565C2640C2A0004616A6 /* sweep3.wav */; };
-		E9EE565F26419D86004616A6 /* chirp.wav in Resources */ = {isa = PBXBuildFile; fileRef = E9EE565E26419D86004616A6 /* chirp.wav */; };
-		E9EE566126419DE9004616A6 /* chirp2.wav in Resources */ = {isa = PBXBuildFile; fileRef = E9EE566026419DE9004616A6 /* chirp2.wav */; };
-		E9EE566326419E4D004616A6 /* chirp3.wav in Resources */ = {isa = PBXBuildFile; fileRef = E9EE566226419E4D004616A6 /* chirp3.wav */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -61,12 +62,13 @@
 		E98F8A8E263DD5B500C49C31 /* 6808FinalProjectUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = 6808FinalProjectUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E98F8A92263DD5B500C49C31 /* _808FinalProjectUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = _808FinalProjectUITests.swift; sourceTree = "<group>"; };
 		E98F8A94263DD5B500C49C31 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		E9B9AD9C2645D1090044B5F4 /* sweep3.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = sweep3.wav; sourceTree = "<group>"; };
+		E9B9AD9D2645D1090044B5F4 /* chirp3.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = chirp3.wav; sourceTree = "<group>"; };
+		E9B9AD9E2645D1090044B5F4 /* sweep1.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = sweep1.wav; sourceTree = "<group>"; };
+		E9B9AD9F2645D1090044B5F4 /* chirp2.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = chirp2.wav; sourceTree = "<group>"; };
+		E9B9ADA02645D1090044B5F4 /* chirp.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = chirp.wav; sourceTree = "<group>"; };
+		E9B9ADA12645D1090044B5F4 /* sweep2.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = sweep2.wav; sourceTree = "<group>"; };
 		E9EE56582640C128004616A6 /* sweep1.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = sweep1.wav; sourceTree = "<group>"; };
-		E9EE565A2640C16F004616A6 /* sweep2.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = sweep2.wav; path = ../../../../../../Downloads/sweep2.wav; sourceTree = "<group>"; };
-		E9EE565C2640C2A0004616A6 /* sweep3.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = sweep3.wav; path = ../../../../../../Downloads/sweep3.wav; sourceTree = "<group>"; };
-		E9EE565E26419D86004616A6 /* chirp.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = chirp.wav; path = ../../../../../../Downloads/chirp.wav; sourceTree = "<group>"; };
-		E9EE566026419DE9004616A6 /* chirp2.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = chirp2.wav; path = ../../../../../../Downloads/chirp2.wav; sourceTree = "<group>"; };
-		E9EE566226419E4D004616A6 /* chirp3.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; name = chirp3.wav; path = ../../../../../../Downloads/chirp3.wav; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -125,13 +127,14 @@
 				5C88B995263DE73A00887CC2 /* RecordAudio.swift */,
 				E98F8A76263DD5B400C49C31 /* Assets.xcassets */,
 				5C88B993263DE00C00887CC2 /* chirp.mp3 */,
+				E9B9ADA02645D1090044B5F4 /* chirp.wav */,
+				E9B9AD9F2645D1090044B5F4 /* chirp2.wav */,
+				E9B9AD9D2645D1090044B5F4 /* chirp3.wav */,
+				E9B9AD9E2645D1090044B5F4 /* sweep1.wav */,
+				E9B9ADA12645D1090044B5F4 /* sweep2.wav */,
+				E9B9AD9C2645D1090044B5F4 /* sweep3.wav */,
 				E98F8A7B263DD5B400C49C31 /* LaunchScreen.storyboard */,
 				E9EE56582640C128004616A6 /* sweep1.wav */,
-				E9EE565C2640C2A0004616A6 /* sweep3.wav */,
-				E9EE565A2640C16F004616A6 /* sweep2.wav */,
-				E9EE566226419E4D004616A6 /* chirp3.wav */,
-				E9EE566026419DE9004616A6 /* chirp2.wav */,
-				E9EE565E26419D86004616A6 /* chirp.wav */,
 				E98F8A7E263DD5B400C49C31 /* Info.plist */,
 				E98F8A78263DD5B400C49C31 /* Preview Content */,
 			);
@@ -276,15 +279,16 @@
 			buildActionMask = 2147483647;
 			files = (
 				E9EE56592640C128004616A6 /* sweep1.wav in Resources */,
-				E9EE565D2640C2A0004616A6 /* sweep3.wav in Resources */,
+				E9B9ADA22645D1090044B5F4 /* sweep3.wav in Resources */,
 				E98F8A7D263DD5B400C49C31 /* LaunchScreen.storyboard in Resources */,
-				E9EE565F26419D86004616A6 /* chirp.wav in Resources */,
-				E9EE566126419DE9004616A6 /* chirp2.wav in Resources */,
+				E9B9ADA42645D1090044B5F4 /* sweep1.wav in Resources */,
+				E9B9ADA52645D1090044B5F4 /* chirp2.wav in Resources */,
 				5C88B994263DE00C00887CC2 /* chirp.mp3 in Resources */,
-				E9EE565B2640C16F004616A6 /* sweep2.wav in Resources */,
+				E9B9ADA72645D1090044B5F4 /* sweep2.wav in Resources */,
 				E98F8A7A263DD5B400C49C31 /* Preview Assets.xcassets in Resources */,
+				E9B9ADA62645D1090044B5F4 /* chirp.wav in Resources */,
 				E98F8A77263DD5B400C49C31 /* Assets.xcassets in Resources */,
-				E9EE566326419E4D004616A6 /* chirp3.wav in Resources */,
+				E9B9ADA32645D1090044B5F4 /* chirp3.wav in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
