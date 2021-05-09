@@ -3,6 +3,9 @@ from scipy.signal import chirp
 from scipy.io.wavfile import write, read
 import pyaudio
 import wave
+import sys
+import threading
+import concurrent.futures
 
 
 
@@ -12,13 +15,15 @@ import wave
 # write('sound.wav', fs, sigf32)
 # print("done")
 
-def sound(array, fs):
+def sound(inp):
+    array, fs = inp
     p = pyaudio.PyAudio()
     stream = p.open(format=pyaudio.paInt16, channels=len(array.shape), rate=fs, output=True)
     stream.write(array.tobytes())
     stream.stop_stream()
     stream.close()
     p.terminate()
+    return "x"
 
 def record(duration=3, fs=8000):
     nsamples = duration*fs
@@ -33,9 +38,35 @@ def record(duration=3, fs=8000):
     return array
 
 
+def play(data):
+    chunk = 1024  # Record in chunks of 1024 samples
+    sample_format = pyaudio.paInt32  # 16 bits per sample
+    channels = 1
+    fs = 44100  # Record at 44100 samples per second
+    seconds = 3
+    filename = "output.wav"
+
+    p = pyaudio.PyAudio()  # Create an interface to PortAudio
+
+    stream = p.open(format=sample_format,
+                    channels=channels,
+                    rate=fs,
+                    frames_per_buffer=chunk,
+                    output=True)
+    
+    for i in range(0, int(fs / chunk * seconds)):
+        stream.write(data[i])
+    
+    #stream.write(data)
+    stream.stop_stream()
+    stream.close()
+    # Terminate the PortAudio interface
+    p.terminate()
+
+
 def record_v2():
     chunk = 1024  # Record in chunks of 1024 samples
-    sample_format = pyaudio.paInt16  # 16 bits per sample
+    sample_format = pyaudio.paInt32  # 16 bits per sample
     channels = 1
     fs = 44100  # Record at 44100 samples per second
     seconds = 3
@@ -49,25 +80,28 @@ def record_v2():
                     channels=channels,
                     rate=fs,
                     frames_per_buffer=chunk,
-                    input=True)
+                    input=True,
+                    output=True)
 
     frames = []  # Initialize array to store frames
 
     # Store data in chunks for 3 seconds
-    frames.append(stream.read(fs * seconds))
+    #frames.append(stream.read(fs * seconds))
 
-    # for i in range(0, int(fs / chunk * seconds)):
-    #     data = stream.read(chunk)
-    #     frames.append(data)
+    for i in range(0, int(fs / chunk * seconds)):
+        data = stream.read(chunk)
+        stream.write(data)
+        frames.append(data)
 
     # Stop and close the stream 
+    #stream.write(frames[0])
     stream.stop_stream()
     stream.close()
     # Terminate the PortAudio interface
     p.terminate()
 
     print('Finished recording')
-    return frames[0]
+    return frames
 
     # Save the recorded data as a WAV file
     wf = wave.open(filename, 'wb')
@@ -117,8 +151,20 @@ print("step1")
 # p.terminate()
 # print("done")
 
+def thread_function():
+    for i in range(100):
+        print(i)
+
 
 if __name__ == "__main__":
+
+    # x = threading.Thread(target=thread_function, args=())
+    # y = threading.Thread(target=thread_function, args=())
+    # x.start()
+    # y.start()
+
+
+    #sys.exit()
     t = np.linspace(0, 10, 1500)
     fs = 44100
     T = 1
@@ -128,22 +174,34 @@ if __name__ == "__main__":
     filename = 'myfile.wav'
     print(w[0])
     scaled = np.int16(w/np.max(np.abs(w)) * 32767) 
+    #x = threading.Thread(target=sound, args=(scaled, fs))
+   # y = threading.Thread
+    #print(x.start())
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        x = threading.Thread(target=sound, args=([scaled, fs],))
+        x.start()
+        #x = executor.submit(sound, (scaled, fs))
+        y = executor.submit(record_v2)
+        return_value = y.result()
+        print(return_value)
+    #sound(scaled, fs)
+    sys.exit()
     print(type(scaled[0]))
 
-    write(filename, fs, scaled)
-    wf = wave.open(filename, 'rb')
+    # write(filename, fs, scaled)
+    # wf = wave.open(filename, 'rb')
 
 
-    fs1, data = read(filename)
-    print(fs1)
-    #data = data * 10
-    test_data = np.array(data)
+    # fs1, data = read(filename)
+    # print(fs1)
+    # #data = data * 10
+    # test_data = np.array(data)
     # for i in range(3):
     #     test_data = np.concatenate((test_data, data))
     #sound(test_data, fs1)
     print("recording")
     test = record_v2()
-    sound(test, 44100)
+    play(test)
 
 
 
