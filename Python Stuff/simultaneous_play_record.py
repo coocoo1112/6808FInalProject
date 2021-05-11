@@ -25,7 +25,16 @@ def callback(indata, outdata, frames, time, status):
         print('Buffer is empty: increase buffersize?', file=sys.stderr)
         raise sd.CallbackAbort from e
     if any(indata):
-        magnitude = np.abs(np.fft.rfft(indata[:, 0], n=fftsize))
+        global previous
+        if previous is None:
+            subtracted_fft = np.fft.rfft(indata[:, 0], n=fftsize)
+            previous = subtracted_fft
+        else:
+            fft = np.fft.rfft(indata[:, 0], n=fftsize)
+            subtracted_fft = np.subtract(fft, previous)
+            previous = fft
+        
+        magnitude = np.abs(subtracted_fft)#np.fft.rfft(indata[:, 0], n=fftsize))
         magnitude *= gain / fftsize
         line = (gradient[int(np.clip(x, 0, 1) * (len(gradient) - 1))]
                 for x in magnitude[low_bin:low_bin + columns])
@@ -64,11 +73,12 @@ def in_callback(indata, frames, time, status):
             print('\x1b[34;40m', text.center(columns, '#'),
                   '\x1b[0m', sep='')
         if any(indata):
-            magnitude = np.abs(np.fft.rfft(indata[:, 0], n=fftsize))
-            magnitude *= gain / fftsize
-            line = (gradient[int(np.clip(x, 0, 1) * (len(gradient) - 1))]
-                    for x in magnitude[low_bin:low_bin + columns])
-            print(*line, sep='', end='\x1b[0m\n')
+            print(np.fft.rfft(indata[:, 0], n=fftsize))
+            # magnitude = np.abs(np.fft.rfft(indata[:, 0], n=fftsize))
+            # magnitude *= gain / fftsize
+            # line = (gradient[int(np.clip(x, 0, 1) * (len(gradient) - 1))]
+            #         for x in magnitude[low_bin:low_bin + columns])
+            #print(*line, sep='', end='\x1b[0m\n')
         else:
             print('no input')
 
@@ -109,6 +119,7 @@ for bg, fg in zip(colors, colors[1:]):
 delta_f = (high - low) / (columns - 1)
 fftsize = math.ceil(fs / delta_f)
 low_bin = math.floor(low / delta_f)   
+previous = None
 
 for _ in range(20):
     data = scaled[:min(block_size, len(scaled))]
@@ -118,7 +129,7 @@ for _ in range(20):
     q.put_nowait(data)
 
 
-with sd.Stream(device=(1,2), samplerate=fs, dtype='float32', latency='low', channels=(1,2), callback=callback, blocksize=block_size):
+with sd.Stream(device=(1,2), samplerate=fs, dtype='float32', latency='low', channels=(1,2), callback=callback, blocksize=block_size, finished_callback=event.set):
     timeout = block_size * buff_size / fs
     while len(data) != 0:
         data = scaled[:min(block_size, len(scaled))]
