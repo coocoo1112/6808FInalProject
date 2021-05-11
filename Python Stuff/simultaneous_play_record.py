@@ -120,11 +120,13 @@ T = .02
 t = np.linspace(0, T, int(T*fs))
 w = chirp(t, f0=17000, f1=23000, t1=T, method='linear').astype(np.float32)
 scaled = np.int16(w/np.max(np.abs(w)) * 32767) 
-fs, scaled = wav.read("fmcw_chirp.wav")
-print(fs)
+scaled=w
+# fs, scaled = wav.read("fmcw_chirp.wav")
+# wav.write("idk1.wav", fs, scaled[:,0])
+# print(fs)
 
-# for i in range(6):
-#     scaled = np.concatenate((scaled, scaled))
+for i in range(7):
+    scaled = np.concatenate((scaled, scaled))
 
 colors = 30, 34, 35, 91, 93, 97
 chars = ' :%#\t#%:'
@@ -144,7 +146,7 @@ low_bin = math.floor(low / delta_f)
 previous = None
 
 for _ in range(20):
-    data = scaled[:min(block_size, len(scaled)),0]
+    data = scaled[:min(block_size, len(scaled))]#,0]
     if len(data) == 0:
         break
     scaled = scaled[min(block_size, len(scaled)):]
@@ -152,22 +154,22 @@ for _ in range(20):
     q.put_nowait(data)
 
 
-# with sd.Stream(device=(1,2), samplerate=fs, dtype='float32', latency='low', channels=(1,2), callback=callback, blocksize=block_size, finished_callback=event.set):
-#     timeout = block_size * buff_size / fs
-#     while len(data) != 0:
-#         data = scaled[:min(block_size, len(scaled)),0]
-#         scaled = scaled[min(block_size, len(scaled)):]
-#         q.put(data, timeout=timeout)
-#     event.wait()
+with sd.Stream(device=(1,2), samplerate=fs, dtype='float32', latency='low', channels=(1,2), callback=callback, blocksize=block_size, finished_callback=event.set):
+    timeout = block_size * buff_size / fs
+    while len(data) != 0:
+        data = scaled[:min(block_size, len(scaled))]#,0]
+        scaled = scaled[min(block_size, len(scaled)):]
+        q.put(data, timeout=timeout)
+    event.wait()
 
-print(fs)
-with sd.InputStream(device=1, channels=1, callback=in_callback,
-                        blocksize=int(fs * block_duration / 1000),
-                        samplerate=fs):
-    while True:
-        response = input()
-        if response in ('', 'q', 'Q'):
-            break
+# print(fs)
+# with sd.InputStream(device=1, channels=1, callback=in_callback,
+#                         blocksize=int(fs * block_duration / 1000),
+#                         samplerate=fs):
+#     while True:
+#         response = input()
+#         if response in ('', 'q', 'Q'):
+#             break
 
 
 
