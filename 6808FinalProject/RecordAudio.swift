@@ -18,6 +18,79 @@ import AVFoundation
 import AudioUnit
 import Surge
 
+struct FileStreamer {
+    lazy var fileHandle = FileHandle(forWritingAtPath: logPath)
+
+    lazy var logPath: String = {
+        let path = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let logFilename = "\(Int(NSDate().timeIntervalSince1970)).csv"
+        let filePath = path.appendingPathComponent(logFilename).absoluteString
+
+        if FileManager.default.fileExists(atPath: filePath) == false {
+            FileManager.default.createFile(atPath: filePath, contents: nil, attributes: nil)
+        }
+        print(filePath)
+        return filePath
+    }()
+
+    mutating func write(_ string: String) {
+        fileHandle?.seekToEndOfFile()
+        if let data = string.data(using: String.Encoding.utf8){
+            fileHandle?.write(data)
+            print(data)
+        }
+    }
+
+    mutating func close() {
+        try! fileHandle?.close()
+    }
+}
+
+class Logger {
+
+    static var logFile: URL?
+//    static var logFile: URL? {
+//        guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return nil }
+//        let formatter = DateFormatter()
+//        formatter.dateFormat = "dd-MM-yyyy HH:mm:ss"
+//        let dateString = formatter.string(from: Date())
+//        let fileName = "\(dateString).csv"
+//        return documentsDirectory.appendingPathComponent(fileName)
+//    }
+
+    static func setup() {
+        guard let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        let dateString = formatter.string(from: Date())
+        let fileName = "\(dateString).csv"
+        logFile = documentsDirectory.appendingPathComponent(fileName)
+    }
+
+    static func log(_ message: String) {
+        guard let logFile = logFile else {
+            return
+        }
+
+//        let formatter = DateFormatter()
+//        formatter.dateFormat = "HH:mm:ss"
+//        let timestamp = formatter.string(from: Date())
+        //        guard let data = (timestamp + ": " + message + "\n").data(using: String.Encoding.utf8) else { return }
+        // needs trailing comma
+        guard let data = (message + ",").data(using: String.Encoding.utf8) else { return }
+
+        if FileManager.default.fileExists(atPath: logFile.path) {
+            if let fileHandle = try? FileHandle(forWritingTo: logFile) {
+                fileHandle.seekToEndOfFile()
+                fileHandle.write(data)
+                fileHandle.closeFile()
+            }
+        } else {
+            try? data.write(to: logFile, options: .atomicWrite)
+        }
+    }
+}
+
 // call setupAudioSessionForRecording() during controlling view load
 // call startRecording() to start recording in a later UI call
 var gTmp0 = 0
@@ -57,6 +130,10 @@ final class RecordAudio: NSObject, ObservableObject {
     private var audioInterrupted        = false
 
     private var renderBlock: AURenderBlock?
+
+//    var fileURL: URL? = nil
+    var fileStreamer = FileStreamer()
+//    var fileOutputStream: TextOutputStream? = nil
 
     func startPlayback(soundFileURL: URL) {
         if isPlaying { return }
@@ -106,6 +183,8 @@ final class RecordAudio: NSObject, ObservableObject {
             && audioSessionActive
             && isRecording == false {
 
+            Logger.setup()
+
             auAudioUnit.inputHandler = { (actionFlags, timestamp, frameCount, inputBusNumber) in
                 if let block = self.renderBlock {       // AURenderBlock?
                     var bufferList = AudioBufferList(
@@ -147,6 +226,9 @@ final class RecordAudio: NSObject, ObservableObject {
 
     func stopRecording() {
 
+//        fileOutputStream?.close()
+//        fileStreamer.close()
+        Logger.setup()
         if isRecording {
             auAudioUnit.stopHardware()
             isRecording = false
@@ -175,6 +257,21 @@ final class RecordAudio: NSObject, ObservableObject {
             var sum: Float32 = 0.0
             var j = self.circInIdx
             let m = self.circBuffSize
+
+            // TODO this doesn't actually handle more than one channel,
+            // which is all the iPad has
+            let floatArray = Array(UnsafeBufferPointer(start: dataArray, count: Int(frameCount)))
+            let stringDataArray = floatArray.map{ String($0) }
+            let stringData = stringDataArray.joined(separator: ",")
+//            fileStreamer.write(stringData)
+            Logger.log(stringData)
+//            if fileURL != nil {
+//                try! fileStreamer.write(to: fileURL!, atomically: true, encoding: .utf8)
+//
+//                print("writing")
+//                print(fileURL)
+//            }
+
             for i in 0..<Int(frameCount/mBuffers.mNumberChannels) {
                 for ch in 0..<Int(mBuffers.mNumberChannels) {
                     let x = Float32(dataArray[i+ch])   // copy channel sample
@@ -196,6 +293,7 @@ final class RecordAudio: NSObject, ObservableObject {
 
         // HACK fft takes too long, so make sure we don't call it too often
         // otherwise the UI seems to slow down
+        /*
         let CYCLES_PER_FFT = 16
         if cycleCount % CYCLES_PER_FFT == 0 {
             DispatchQueue.global().async { [self] in
@@ -219,6 +317,7 @@ final class RecordAudio: NSObject, ObservableObject {
                 }
             }
         }
+        */
 
         cycleCount += 1
     }
@@ -249,6 +348,7 @@ final class RecordAudio: NSObject, ObservableObject {
 
             if enableRecording {
                 try audioSession.setCategory(AVAudioSession.Category.playAndRecord)
+                try audioSession.setMode(.measurement)
             }
             let preferredIOBufferDuration = 0.0053  // 5.3 milliseconds = 256 samples
             try audioSession.setPreferredSampleRate(sampleRate) // at 48000.0
