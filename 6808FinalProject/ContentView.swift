@@ -8,6 +8,8 @@
 import AVFoundation
 import SwiftUI
 import SwiftUICharts
+import MediaPlayer
+
 
 var player: AVAudioPlayer?
 
@@ -15,7 +17,9 @@ struct ContentView: View {
     @State private var showDetails = false
     @ObservedObject var recorder: RecordAudio
 
-    var body: some View {
+    @State private var timer: DispatchSourceTimer!
+
+    var body: some View {        
         Text("Hello, world!")
             .padding()
         Button {
@@ -26,11 +30,44 @@ struct ContentView: View {
         Button {
             playSound(recorder: recorder)
         } label: {
-            Text("Start playback")
+            Text("Start playback and recording")
+        }
+        Button {
+            playSound(recorder: recorder)
+
+            let timeLimit = 40.0
+
+            let queue = DispatchQueue(label: "MIT-6.808.-808FinalProject1.timer", qos: .userInteractive)
+            timer = DispatchSource.makeTimerSource(flags: .strict, queue: queue)
+            timer.schedule(deadline: .now() + timeLimit, leeway: .nanoseconds(0))
+            timer.setEventHandler{
+                stopRecording(recorder: recorder)
+                print("stopped")
+            }
+
+            timer.activate()
+        } label: {
+            Text("Start 5s playback and recording")
+        }
+        Button {
+            stopRecording(recorder: recorder)
+        } label: {
+            Text("Stop recording")
+        }
+        Button {
+            // set volume to same thing every time
+            let volumeView = MPVolumeView()
+            let slider = volumeView.subviews.first(where: { $0 is UISlider }) as? UISlider
+
+            DispatchQueue.main.asyncAfter(deadline: DispatchTime.now() + 0.01) {
+                slider?.value = 0.7
+            }
+        } label: {
+            Text("Set volume")
         }
 
         // expects a double array so we have to do this annoying conversion
-        LineView(data: recorder.fftPlot.map {Double($0)}, title: "FFT")
+//        LineView(data: recorder.fftPlot.map {Double($0)}, title: "FFT")
     }
 }
 
@@ -44,8 +81,8 @@ func recordSound(recorder: RecordAudio) {
 
 func playSound(recorder: RecordAudio) {
     guard let soundFileURL = Bundle.main.url(
-        forResource: "chirp",
-        withExtension: "mp3"
+        forResource: "fmcw_chirp",
+        withExtension: "wav"
     ) else {
         return
     }
@@ -53,34 +90,8 @@ func playSound(recorder: RecordAudio) {
     recorder.startPlayback(soundFileURL: soundFileURL)
 }
 
-func playSound() {
-    guard let soundFileURL = Bundle.main.url(
-        forResource: "chirp",
-        withExtension: "mp3"
-    ) else {
-        return
-    }
-
-    print(Bundle.main.bundleURL)
-
-    do {
-        // Configure and activate the AVAudioSession
-        try AVAudioSession.sharedInstance().setCategory(
-            AVAudioSession.Category.playAndRecord
-        )
-
-        try AVAudioSession.sharedInstance().setActive(true)
-
-        // Play a sound
-        player = try AVAudioPlayer(
-            contentsOf: soundFileURL
-        )
-
-        player?.play()
-    } catch {
-        // Handle error
-        print("oh shit")
-    }
+func stopRecording(recorder: RecordAudio) {
+    recorder.stopRecording()
 }
 
 // struct ContentView_Previews: PreviewProvider {
