@@ -11,7 +11,7 @@ import scipy.io.wavfile as wav
 
 #global scaled
 buff_size = 40
-block_size = 960
+block_size = 1920
 q = queue.Queue(maxsize=buff_size)
 event = threading.Event()
 gain = 10
@@ -73,32 +73,57 @@ def out_callback(outdata, frames, time, status):
         outdata[:] = data.reshape((block_size, 1))
 
 def in_callback(indata, frames, time, status):
-        global start
-        # print(datetime.datetime.now()-start)
-        # print(frames)
-        # print(len(indata))
-        if status:
-            text = ' ' + str(status) + ' '
-            print('\x1b[34;40m', text.center(columns, '#'),
-                  '\x1b[0m', sep='')
-        if any(indata):
-            #print(np.fft.rfft(indata[:, 0], n=fftsize))
-            global previous
-            #print(datetime.datetime.now() - start)
-            if previous is None:
-                subtracted_fft = np.fft.rfft(indata[:, 0], n=fftsize)
-                previous = subtracted_fft
-            else:
-                fft = np.fft.rfft(indata[:, 0], n=fftsize)
-                subtracted_fft = np.subtract(fft, previous)
-                previous = fft
-            magnitude = np.abs(subtracted_fft)#np.fft.rfft(indata[:, 0], n=fftsize))
-            magnitude *= gain / fftsize
-            line = (gradient[int(np.clip(x, 0, 1) * (len(gradient) - 1))]
-                    for x in magnitude[low_bin:low_bin + columns])
-            print(*line, sep='', end='\x1b[0m\n')
+    global start
+    # print(datetime.datetime.now()-start)
+    # print(frames)
+    # print(len(indata))
+    if status:
+        text = ' ' + str(status) + ' '
+        print('\x1b[34;40m', text.center(columns, '#'),
+                '\x1b[0m', sep='')
+    if any(indata):
+        #print(np.fft.rfft(indata[:, 0], n=fftsize))
+        global previous
+        #print(datetime.datetime.now() - start)
+        if previous is None:
+            subtracted_fft = np.fft.rfft(indata[:, 0], n=fftsize)
+            previous = subtracted_fft
         else:
-            print('no input')
+            fft = np.fft.rfft(indata[:, 0], n=fftsize)
+            subtracted_fft = np.subtract(fft, previous)
+            previous = fft
+        magnitude = np.abs(subtracted_fft)#np.fft.rfft(indata[:, 0], n=fftsize))
+        magnitude *= gain / fftsize
+        line = (gradient[int(np.clip(x, 0, 1) * (len(gradient) - 1))]
+                for x in magnitude[low_bin:low_bin + columns])
+        print(*line, sep='', end='\x1b[0m\n')
+    else:
+        fft = np.fft.rfft(indata[:, 0], n=fftsize)
+        subtracted_fft = np.subtract(fft, previous)
+        previous = fft
+    
+    # fft = np.fft.rfft(indata[:, 0], n=fftsize)
+
+    magnitude = np.abs(subtracted_fft)#np.fft.rfft(indata[:, 0], n=fftsize))
+    magnitude *= gain / fftsize
+    line = (gradient[int(np.clip(x, 0, 1) * (len(gradient) - 1))]
+            for x in magnitude[low_bin:low_bin + columns])
+    print(*line, sep='', end='\x1b[0m\n')
+
+# def in_callback(indata, frames, time, status):
+#         if status:
+#             text = ' ' + str(status) + ' '
+#             print('\x1b[34;40m', text.center(columns, '#'),
+#                   '\x1b[0m', sep='')
+#         if any(indata):
+#             print(np.fft.rfft(indata[:, 0], n=fftsize))
+#             # magnitude = np.abs(np.fft.rfft(indata[:, 0], n=fftsize))
+#             # magnitude *= gain / fftsize
+#             # line = (gradient[int(np.clip(x, 0, 1) * (len(gradient) - 1))]
+#             #         for x in magnitude[low_bin:low_bin + columns])
+#             #print(*line, sep='', end='\x1b[0m\n')
+#         else:
+#             print('no input')
 
 
 
@@ -113,7 +138,7 @@ try:
 except AttributeError:
     columns = 80
 
-fs = 44100
+fs = 48000
 fs = int(sd.query_devices(1, 'input')['default_samplerate'])
 print(fs)
 T = .02
@@ -142,6 +167,7 @@ for bg, fg in zip(colors, colors[1:]):
 
 delta_f = (high - low) / (columns - 1)
 fftsize = math.ceil(fs / delta_f)
+# fftsize = 1920
 low_bin = math.floor(low / delta_f)   
 previous = None
 
