@@ -74,9 +74,9 @@ def out_callback(outdata, frames, time, status):
 
 def in_callback(indata, frames, time, status):
         global start
-        print(start-datetime.datetime.now())
-        print(frames)
-        print(len(indata))
+        # print(datetime.datetime.now()-start)
+        # print(frames)
+        # print(len(indata))
         if status:
             text = ' ' + str(status) + ' '
             print('\x1b[34;40m', text.center(columns, '#'),
@@ -160,7 +160,7 @@ for _ in range(20):
 #         q.put(data, timeout=timeout)
 #     event.wait()
 
-
+print(fs)
 with sd.InputStream(device=1, channels=1, callback=in_callback,
                         blocksize=int(fs * block_duration / 1000),
                         samplerate=fs):
