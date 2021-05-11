@@ -11,6 +11,9 @@
 		5C88B996263DE73A00887CC2 /* RecordAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C88B995263DE73A00887CC2 /* RecordAudio.swift */; };
 		5C88B99A2640667100887CC2 /* SwiftUICharts in Frameworks */ = {isa = PBXBuildFile; productRef = 5C88B9992640667100887CC2 /* SwiftUICharts */; };
 		5C88B99D2640747700887CC2 /* Surge in Frameworks */ = {isa = PBXBuildFile; productRef = 5C88B99C2640747700887CC2 /* Surge */; };
+		5CB4FFA52648838400D25DCF /* sweep_100to20k_linear.wav in Resources */ = {isa = PBXBuildFile; fileRef = 5CB4FFA42648838400D25DCF /* sweep_100to20k_linear.wav */; };
+		5CB4FFA72648840C00D25DCF /* white_noise.wav in Resources */ = {isa = PBXBuildFile; fileRef = 5CB4FFA62648840C00D25DCF /* white_noise.wav */; };
+		5CF8CBC5264981F700668B7D /* fmcw_chirp.wav in Resources */ = {isa = PBXBuildFile; fileRef = 5CF8CBC4264981F700668B7D /* fmcw_chirp.wav */; };
 		E98F8A71263DD5B200C49C31 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E98F8A70263DD5B200C49C31 /* AppDelegate.swift */; };
 		E98F8A73263DD5B200C49C31 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E98F8A72263DD5B200C49C31 /* SceneDelegate.swift */; };
 		E98F8A75263DD5B200C49C31 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E98F8A74263DD5B200C49C31 /* ContentView.swift */; };
@@ -41,6 +44,9 @@
 /* Begin PBXFileReference section */
 		5C88B993263DE00C00887CC2 /* chirp.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = chirp.mp3; sourceTree = "<group>"; };
 		5C88B995263DE73A00887CC2 /* RecordAudio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordAudio.swift; sourceTree = "<group>"; };
+		5CB4FFA42648838400D25DCF /* sweep_100to20k_linear.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = sweep_100to20k_linear.wav; sourceTree = "<group>"; };
+		5CB4FFA62648840C00D25DCF /* white_noise.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = white_noise.wav; sourceTree = "<group>"; };
+		5CF8CBC4264981F700668B7D /* fmcw_chirp.wav */ = {isa = PBXFileReference; lastKnownFileType = audio.wav; path = fmcw_chirp.wav; sourceTree = "<group>"; };
 		E98F8A6D263DD5B200C49C31 /* 6808FinalProject.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = 6808FinalProject.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E98F8A70263DD5B200C49C31 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		E98F8A72263DD5B200C49C31 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -109,9 +115,12 @@
 			children = (
 				E98F8A70263DD5B200C49C31 /* AppDelegate.swift */,
 				E98F8A72263DD5B200C49C31 /* SceneDelegate.swift */,
+				5CF8CBC4264981F700668B7D /* fmcw_chirp.wav */,
 				E98F8A74263DD5B200C49C31 /* ContentView.swift */,
+				5CB4FFA62648840C00D25DCF /* white_noise.wav */,
 				5C88B995263DE73A00887CC2 /* RecordAudio.swift */,
 				E98F8A76263DD5B400C49C31 /* Assets.xcassets */,
+				5CB4FFA42648838400D25DCF /* sweep_100to20k_linear.wav */,
 				5C88B993263DE00C00887CC2 /* chirp.mp3 */,
 				E98F8A7B263DD5B400C49C31 /* LaunchScreen.storyboard */,
 				E98F8A7E263DD5B400C49C31 /* Info.plist */,
@@ -258,8 +267,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				E98F8A7D263DD5B400C49C31 /* LaunchScreen.storyboard in Resources */,
+				5CF8CBC5264981F700668B7D /* fmcw_chirp.wav in Resources */,
 				5C88B994263DE00C00887CC2 /* chirp.mp3 in Resources */,
 				E98F8A7A263DD5B400C49C31 /* Preview Assets.xcassets in Resources */,
+				5CB4FFA72648840C00D25DCF /* white_noise.wav in Resources */,
+				5CB4FFA52648838400D25DCF /* sweep_100to20k_linear.wav in Resources */,
 				E98F8A77263DD5B400C49C31 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
