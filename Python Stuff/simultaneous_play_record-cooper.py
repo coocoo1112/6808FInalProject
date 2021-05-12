@@ -1,6 +1,7 @@
+from operator import sub
 import sounddevice as sd
 import numpy as np
-from scipy.signal import chirp
+from scipy.signal import chirp, spectrogram, find_peaks
 import queue
 import threading
 import sys
@@ -9,6 +10,7 @@ import math
 import datetime
 import scipy.io.wavfile as wav
 import json
+import matplotlib.pyplot as plt
 
 #global scaled
 buff_size = 40
@@ -21,7 +23,12 @@ block_duration = 20 #in milliseconds
 start = datetime.datetime.now()
 print(sd.query_devices())
 total_result = None
+distances = []
 
+def plot(fft):
+    plt.plot(fft)
+    plt.show()
+    sys.exit()
 
 
 def callback(indata, outdata, frames, time, status):
@@ -33,19 +40,35 @@ def callback(indata, outdata, frames, time, status):
     if any(indata):
         global previous
         global total_result
+        global fs
+        global distances
         #print(datetime.datetime.now() - start)
+        multiplied = np.multiply(indata, outdata)
+        #multiplied = indata
+        #print(indata.shape, outdata.shape, multiplied.shape)
         if previous is None:
-            subtracted_fft = np.fft.rfft(indata[:, 0], n=fftsize)
+            subtracted_fft = np.fft.rfft(multiplied[:, 0], n=fftsize)#indata
             previous = subtracted_fft
         else:
-            fft = np.fft.rfft(indata[:, 0], n=fftsize)
+            fft = np.fft.rfft(multiplied[:, 0], n=fftsize)#indata
             subtracted_fft = np.subtract(fft, previous)
             previous = fft
+            #plot(subtracted_fft)
+            
         if total_result is None:
-            total_result = [subtracted_fft.tolist()]
+            total_result = [subtracted_fft]
         else:
-            total_result.append(subtracted_fft.tolist())
+            total_result.append(subtracted_fft)
         
+        freqs = np.fft.fftfreq(len(subtracted_fft))
+        idx = find_peaks(subtracted_fft)[0][0]#np.argmax(np.abs(subtracted_fft))
+        print(idx)
+        freq = freqs[idx]
+        freq_in_hertz = abs(freq * fs)
+        print(freq_in_hertz)
+        distance = freq_in_hertz * 343 * 0.02 / 6000
+        print(distance)
+        distances.append(distance)
         magnitude = np.abs(subtracted_fft)#np.fft.rfft(indata[:, 0], n=fftsize))
         magnitude *= gain / fftsize
         line = (gradient[int(np.clip(x, 0, 1) * (len(gradient) - 1))]
@@ -146,10 +169,10 @@ except AttributeError:
     columns = 80
 
 fs = 48000
-fs = int(sd.query_devices(1, 'input')['default_samplerate'])
+fs = int(sd.query_devices(0, 'input')['default_samplerate'])
 print(fs)
 T = .02
-t = np.linspace(0, T, int(T*fs))
+t = np.linspace(1, T, int(T*fs))
 w = chirp(t, f0=17000, f1=23000, t1=T, method='linear').astype(np.float32)
 scaled = np.int16(w/np.max(np.abs(w)) * 32767) 
 scaled=w
@@ -157,7 +180,7 @@ scaled=w
 # wav.write("idk1.wav", fs, scaled[:,0])
 # print(fs)
 
-for i in range(8):
+for i in range(7):
     scaled = np.concatenate((scaled, scaled))
 
 colors = 30, 34, 35, 91, 93, 97
@@ -187,21 +210,25 @@ for _ in range(20):
     q.put_nowait(data)
 
 
-with sd.Stream(device=(1,2), samplerate=fs, dtype='float32', latency='low', channels=(1,2), callback=callback, blocksize=block_size, finished_callback=event.set):
+with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', channels=(1,2), callback=callback, blocksize=block_size, finished_callback=event.set):
     timeout = block_size * buff_size / fs
     while len(data) != 0:
         data = scaled[:min(block_size, len(scaled))]#,0]
         scaled = scaled[min(block_size, len(scaled)):]
         q.put(data, timeout=timeout)
-    print("done")
-    print(type(total_result))
-    print(type(total_result[0]))
-    string = json.dumps(total_result)
-    with open("testidk.txt", 'w') as f:
-        f.write(string)
-    test = json.loads(string)
-    print(type(test))
-    print(type(test[0]))
+    plt.plot(distances)
+    plt.show()
+    # f, t, Sxx = spectrogram(np.array(total_result), fs)
+    # plt.pcolormesh(t, f, Sxx, shading='gouraud')
+    # plt.ylabel('Frequency [Hz]')
+    # plt.xlabel('Time [sec]')
+    # plt.show()
+    # string = json.dumps(total_result)
+    # with open("testidk.txt", 'w') as f:
+    #     f.write(string)
+    # test = json.loads(string)
+    # print(type(test))
+    # print(type(test[0]))
     event.wait()
 
 # print(fs)
