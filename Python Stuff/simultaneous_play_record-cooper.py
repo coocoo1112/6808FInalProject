@@ -14,11 +14,11 @@ import matplotlib.pyplot as plt
 
 #global scaled
 buff_size = 40
-block_size = 960
+block_size = 4800#960
 q = queue.Queue(maxsize=buff_size)
 event = threading.Event()
 gain = 10
-low, high = 17000, 23000
+low, high = 0, 23000#17000, 23000
 block_duration = 20 #in milliseconds
 start = datetime.datetime.now()
 print(sd.query_devices())
@@ -42,9 +42,10 @@ def callback(indata, outdata, frames, time, status):
         global total_result
         global fs
         global distances
+        global T
         #print(datetime.datetime.now() - start)
         multiplied = np.multiply(indata, outdata)
-        #multiplied = indata
+        multiplied = indata
         #print(indata.shape, outdata.shape, multiplied.shape)
         if previous is None:
             subtracted_fft = np.fft.rfft(multiplied[:, 0], n=fftsize)#indata
@@ -61,19 +62,22 @@ def callback(indata, outdata, frames, time, status):
             total_result.append(subtracted_fft)
         
         freqs = np.fft.fftfreq(len(subtracted_fft))
-        idx = find_peaks(subtracted_fft)[0][0]#np.argmax(np.abs(subtracted_fft))
-        print(idx)
-        freq = freqs[idx]
-        freq_in_hertz = abs(freq * fs)
-        print(freq_in_hertz)
-        distance = freq_in_hertz * 343 * 0.02 / 6000
-        print(distance)
-        distances.append(distance)
-        magnitude = np.abs(subtracted_fft)#np.fft.rfft(indata[:, 0], n=fftsize))
-        magnitude *= gain / fftsize
-        line = (gradient[int(np.clip(x, 0, 1) * (len(gradient) - 1))]
-                for x in magnitude[low_bin:low_bin + columns])
-        print(*line, sep='', end='\x1b[0m\n')
+        #print(subtracted_fft)
+        idx = find_peaks(subtracted_fft)#np.argmax(np.abs(subtracted_fft))
+        if len(idx[0]) != 0:
+            idx = idx[0][0]
+            #print(idx)
+            freq = freqs[idx]
+            freq_in_hertz = abs(freq * fs)
+            print("test", freq_in_hertz)
+            distance = freq_in_hertz * 343 * T / 6000#(high - low)
+            #print(distance)
+            distances.append(distance)
+            magnitude = np.abs(subtracted_fft)#np.fft.rfft(indata[:, 0], n=fftsize))
+            magnitude *= gain / fftsize
+            line = (gradient[int(np.clip(x, 0, 1) * (len(gradient) - 1))]
+                    for x in magnitude[low_bin:low_bin + columns])
+            print(*line, sep='', end='\x1b[0m\n')
     else:
         print('no input')
     if len(data) < len(outdata):
@@ -95,12 +99,15 @@ def out_callback(outdata, frames, time, status):
         print('Buffer is empty: increase buffersize?', file=sys.stderr)
         raise sd.CallbackAbort from e
     if len(data) < len(outdata):
+        print("test")
         print(len(data), len(outdata))
         outdata[:len(data)] = data.reshape(len(data), 1)
         outdata[len(data):] = np.zeros(((len(outdata) - len(data), 1)))
         raise sd.CallbackStop
     else:
-        outdata[:] = data.reshape((block_size, 1))
+        
+        temp = data.reshape((block_size, 1))
+        outdata[:] = temp
 
 def in_callback(indata, frames, time, status):
     global start
@@ -112,25 +119,45 @@ def in_callback(indata, frames, time, status):
         print('\x1b[34;40m', text.center(columns, '#'),
                 '\x1b[0m', sep='')
     if any(indata):
-        #print(np.fft.rfft(indata[:, 0], n=fftsize))
         global previous
+        global total_result
+        global fs
+        global distances
+        global T
         #print(datetime.datetime.now() - start)
+        #multiplied = np.multiply(indata, outdata)
+        multiplied = indata
+        #print(indata.shape, outdata.shape, multiplied.shape)
         if previous is None:
-            subtracted_fft = np.fft.rfft(indata[:, 0], n=fftsize)
+            subtracted_fft = np.fft.rfft(multiplied[:, 0], n=fftsize)#indata
             previous = subtracted_fft
         else:
-            fft = np.fft.rfft(indata[:, 0], n=fftsize)
+            fft = np.fft.rfft(multiplied[:, 0], n=fftsize)#indata
             subtracted_fft = np.subtract(fft, previous)
             previous = fft
+            #plot(subtracted_fft)
+            
+        if total_result is None:
+            total_result = [subtracted_fft]
+        else:
+            total_result.append(subtracted_fft)
+        
+        freqs = np.fft.fftfreq(len(subtracted_fft))
+        idx = np.argmax(np.abs(subtracted_fft))#find_peaks(subtracted_fft)[0][0]#
+        #print(idx)
+        freq = freqs[idx]
+        freq_in_hertz = abs(freq * fs)
+        print(freq_in_hertz)
+        distance = freq_in_hertz * 343 * T / (high - low)
+        #print(distance)
+        distances.append(distance)
         magnitude = np.abs(subtracted_fft)#np.fft.rfft(indata[:, 0], n=fftsize))
         magnitude *= gain / fftsize
         line = (gradient[int(np.clip(x, 0, 1) * (len(gradient) - 1))]
                 for x in magnitude[low_bin:low_bin + columns])
         print(*line, sep='', end='\x1b[0m\n')
     else:
-        fft = np.fft.rfft(indata[:, 0], n=fftsize)
-        subtracted_fft = np.subtract(fft, previous)
-        previous = fft
+        print('no input')
     
     # fft = np.fft.rfft(indata[:, 0], n=fftsize)
 
@@ -171,17 +198,20 @@ except AttributeError:
 fs = 48000
 fs = int(sd.query_devices(0, 'input')['default_samplerate'])
 print(fs)
-T = .02
-t = np.linspace(1, T, int(T*fs))
+T = .1#.02
+t = np.linspace(0, T, int(T*fs), endpoint=False)
 w = chirp(t, f0=17000, f1=23000, t1=T, method='linear').astype(np.float32)
-scaled = np.int16(w/np.max(np.abs(w)) * 32767) 
-scaled=w
+#scaled = np.int16(w/np.max(np.abs(w)) * 32767) 
+scaled = None
 # fs, scaled = wav.read("fmcw_chirp.wav")
 # wav.write("idk1.wav", fs, scaled[:,0])
 # print(fs)
 
-for i in range(7):
-    scaled = np.concatenate((scaled, scaled))
+for i in range(50):
+    if scaled is None:
+        scaled = np.array(w)
+    else:
+        scaled = np.concatenate((scaled,w))#(scaled, scaled))
 
 colors = 30, 34, 35, 91, 93, 97
 chars = ' :%#\t#%:'
@@ -207,6 +237,7 @@ for _ in range(20):
         break
     scaled = scaled[min(block_size, len(scaled)):]
     print(data.shape)
+    print("loop")
     q.put_nowait(data)
 
 
@@ -216,8 +247,7 @@ with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', chan
         data = scaled[:min(block_size, len(scaled))]#,0]
         scaled = scaled[min(block_size, len(scaled)):]
         q.put(data, timeout=timeout)
-    plt.plot(distances)
-    plt.show()
+    
     # f, t, Sxx = spectrogram(np.array(total_result), fs)
     # plt.pcolormesh(t, f, Sxx, shading='gouraud')
     # plt.ylabel('Frequency [Hz]')
@@ -230,9 +260,13 @@ with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', chan
     # print(type(test))
     # print(type(test[0]))
     event.wait()
+    print(len(distances))
+    print(min(distances))
+    plt.plot(distances)
+    plt.show()
 
-# print(fs)
-# with sd.InputStream(device=1, channels=1, callback=in_callback,
+# # print(fs)
+# with sd.InputStream(device=0, channels=1, callback=in_callback,
 #                         blocksize=int(fs * block_duration / 1000),
 #                         samplerate=fs):
 #     while True:
@@ -247,11 +281,12 @@ with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', chan
 #output stream working
 
 # try:
-#     stream = sd.OutputStream(device=1, samplerate=fs, dtype='float32', latency='low', channels=1, callback=out_callback, blocksize=block_size, finished_callback=event.set)
+#     stream = sd.OutputStream(device=1, samplerate=fs, dtype='float32', latency='low', channels=2, callback=out_callback, blocksize=block_size, finished_callback=event.set)
 #     with stream:
 #         print("starting")
 #         timeout = block_size * buff_size / fs
 #         while len(data) != 0:
+#             print("hmmm")
 #             data = scaled[:min(block_size, len(scaled))]
 #             scaled = scaled[min(block_size, len(scaled)):]
 #             q.put(data, timeout=timeout)
