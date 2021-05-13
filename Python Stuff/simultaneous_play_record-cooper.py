@@ -25,6 +25,7 @@ print(sd.query_devices())
 total_result = None
 distances = []
 ffts = []
+sent_data = []
 
 def plot(fft):
     plt.plot(fft)
@@ -35,6 +36,12 @@ def plot(fft):
 def callback(indata, outdata, frames, time, status):
     try:
         data = q.get_nowait()
+        sent_data.append(data)
+        print("1", data.reshape((block_size, 1)).shape)
+        temp_fft = np.abs((np.fft.rfft(outdata.reshape((block_size, 1)), axis=0)))#/len(data)))
+        print("2",fftsize)
+        print("3",temp_fft.shape)
+        ffts.append(temp_fft)
     except queue.Empty as e:
         print('Buffer is empty: increase buffersize?', file=sys.stderr)
         raise sd.CallbackAbort from e
@@ -49,21 +56,25 @@ def callback(indata, outdata, frames, time, status):
         multiplied = indata
         #print(indata.shape, outdata.shape, multiplied.shape)
         if previous is None:
-            subtracted_fft = np.fft.rfft(multiplied[:, 0], n=fftsize)#indata
+            subtracted_fft = np.fft.rfft(multiplied.reshape((block_size, 1))[:, 0], n=fftsize)#indata
             previous = subtracted_fft
         else:
             fft = np.fft.rfft(multiplied[:, 0], n=fftsize)#indata
+            print("real", fft.shape)
+            print("mult", multiplied.shape)
             subtracted_fft = np.subtract(fft, previous)
             previous = fft
             #plot(subtracted_fft)
-            ffts.append(np.fft.rfft(data.reshape((block_size, 1))[:, 0], n=fftsize))
+            print("4",fftsize)
+            print("5",subtracted_fft.shape)
+            
             
         if total_result is None:
             total_result = [subtracted_fft]
         else:
             total_result.append(subtracted_fft)
         
-        freqs = np.fft.fftfreq(len(subtracted_fft))
+        freqs = np.fft.rfftfreq(len(subtracted_fft))
         #print(subtracted_fft)
         idx = find_peaks(subtracted_fft)#np.argmax(np.abs(subtracted_fft))
         if len(idx[0]) != 0:
@@ -89,6 +100,7 @@ def callback(indata, outdata, frames, time, status):
         raise sd.CallbackStop
     else:
         outdata[:] = data.reshape((block_size, 1))
+        print("outdata size: ", outdata.shape)
     
 
 
@@ -200,7 +212,7 @@ except AttributeError:
 fs = 48000
 fs = int(sd.query_devices(0, 'input')['default_samplerate'])
 print(fs)
-T = .1#.02
+T = .1
 t = np.linspace(0, T, int(T*fs), endpoint=False)
 w = chirp(t, f0=17000, f1=23000, t1=T, method='linear').astype(np.float32)
 #scaled = np.int16(w/np.max(np.abs(w)) * 32767) 
@@ -229,7 +241,7 @@ for bg, fg in zip(colors, colors[1:]):
 
 delta_f = (high - low) / (columns - 1)
 fftsize = math.ceil(fs / delta_f)
-# fftsize = 1920
+fftsize = 960
 low_bin = math.floor(low / delta_f)   
 previous = None
 
@@ -243,7 +255,7 @@ for _ in range(20):
     q.put_nowait(data)
 
 
-with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', channels=(1,2), callback=callback, blocksize=block_size, finished_callback=event.set):
+with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', channels=(1,1), callback=callback, blocksize=block_size, finished_callback=event.set):
     timeout = block_size * buff_size / fs
     while len(data) != 0:
         data = scaled[:min(block_size, len(scaled))]#,0]
@@ -265,7 +277,9 @@ with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', chan
     print(len(distances))
     print(min(distances))
     print(len(ffts))
-    for i in range (0, len(ffts), 5):
+    for i in range (1, len(ffts), 25):
+        plt.plot(sent_data[i])
+        plt.show()
         plt.plot(ffts[i])
         plt.show()
     plt.plot(distances)
