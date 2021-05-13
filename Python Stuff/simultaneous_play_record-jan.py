@@ -26,6 +26,9 @@ total_result = None
 distances = []
 ffts = []
 
+sound_data_received = []
+sound_data_sent = []
+
 def plot(fft):
     plt.plot(fft)
     plt.show()
@@ -47,6 +50,14 @@ def callback(indata, outdata, frames, time, status):
         #print(datetime.datetime.now() - start)
         multiplied = np.multiply(indata, outdata)
         multiplied = indata
+
+        # Capturing the sound that is being sent 
+        sound_data_sent.append(outdata)
+
+        # Capturing the sound that is being received        
+        sound_data_received.append(indata)
+
+        # plot(indata)
         #print(indata.shape, outdata.shape, multiplied.shape)
         if previous is None:
             subtracted_fft = np.fft.rfft(multiplied[:, 0], n=fftsize)#indata
@@ -265,12 +276,31 @@ with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', chan
     print(len(distances))
     print(min(distances))
     print(len(ffts))
-    for i in range (0, len(ffts), 5):
-        plt.plot(ffts[i])
-        plt.show()
-    plt.plot(distances)
+    # for i in range (0, len(ffts), 5):
+    #     plt.plot(ffts[i])
+    #     plt.show()
+    # plt.plot(distances)
+
+
+    ##### Checking the shape and structure of the input data
+
+
+    fft_of_recevied_data = np.fft.fft(sound_data_received[0])
+    fft_of_sent_data = np.fft.fft(sound_data_sent[0])
+
+    # Plotting the data that is being sent
+    plt.plot(sound_data_received[0])
     plt.show()
 
+    plt.plot(fft_of_recevied_data)
+    plt.show()
+
+
+    plt.plot(sound_data_sent[0])
+    plt.show()
+
+    plt.plot(fft_of_sent_data)
+    plt.show()
 # # print(fs)
 # with sd.InputStream(device=0, channels=1, callback=in_callback,
 #                         blocksize=int(fs * block_duration / 1000),
