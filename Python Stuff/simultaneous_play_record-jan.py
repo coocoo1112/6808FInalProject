@@ -38,6 +38,10 @@ def plot(fft):
 def callback(indata, outdata, frames, time, status):
     try:
         data = q.get_nowait()
+
+        # Capturing the sound that is being received        
+        sound_data_received.append(indata)
+
     except queue.Empty as e:
         print('Buffer is empty: increase buffersize?', file=sys.stderr)
         raise sd.CallbackAbort from e
@@ -50,12 +54,6 @@ def callback(indata, outdata, frames, time, status):
         #print(datetime.datetime.now() - start)
         multiplied = np.multiply(indata, outdata)
         multiplied = indata
-
-        # Capturing the sound that is being sent 
-        sound_data_sent.append(outdata)
-
-        # Capturing the sound that is being received        
-        sound_data_received.append(indata)
 
         # plot(indata)
         #print(indata.shape, outdata.shape, multiplied.shape)
@@ -100,6 +98,8 @@ def callback(indata, outdata, frames, time, status):
         raise sd.CallbackStop
     else:
         outdata[:] = data.reshape((block_size, 1))
+        # Capturing the sound that is being sent 
+        sound_data_sent.append(outdata)
     
 
 
@@ -285,8 +285,16 @@ with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', chan
     ##### Checking the shape and structure of the input data
 
 
-    fft_of_recevied_data = np.fft.fft(sound_data_received[0])
-    fft_of_sent_data = np.fft.fft(sound_data_sent[0])
+    fft_of_recevied_data = np.abs(np.fft.rfft(sound_data_received[0],axis=0))
+    fft_of_sent_data = np.abs(np.fft.rfft(sound_data_sent[0],axis=0))
+
+    print("Received data frequencies:")
+    print(fft_of_recevied_data)
+
+    print("Sent data frequencies:")
+    print(fft_of_sent_data)
+
+    # print(sound_data_received[0])
 
     # Plotting the data that is being sent
     plt.plot(sound_data_received[0])
@@ -294,7 +302,6 @@ with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', chan
 
     plt.plot(fft_of_recevied_data)
     plt.show()
-
 
     plt.plot(sound_data_sent[0])
     plt.show()
