@@ -18,12 +18,13 @@ block_size = 4800#960
 q = queue.Queue(maxsize=buff_size)
 event = threading.Event()
 gain = 10
-low, high = 0, 23000#17000, 23000
+low, high = 17000, 23000#17000, 23000
 block_duration = 20 #in milliseconds
 start = datetime.datetime.now()
 print(sd.query_devices())
 total_result = None
 distances = []
+ffts = []
 
 def plot(fft):
     plt.plot(fft)
@@ -55,6 +56,7 @@ def callback(indata, outdata, frames, time, status):
             subtracted_fft = np.subtract(fft, previous)
             previous = fft
             #plot(subtracted_fft)
+            ffts.append(np.fft.rfft(data.reshape((block_size, 1))[:, 0], n=fftsize))
             
         if total_result is None:
             total_result = [subtracted_fft]
@@ -262,6 +264,10 @@ with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', chan
     event.wait()
     print(len(distances))
     print(min(distances))
+    print(len(ffts))
+    for i in range (0, len(ffts), 5):
+        plt.plot(ffts[i])
+        plt.show()
     plt.plot(distances)
     plt.show()
 
