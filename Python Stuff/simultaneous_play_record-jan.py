@@ -29,6 +29,8 @@ ffts = []
 sound_data_received = []
 sound_data_sent = []
 
+data_fft=[]
+
 def plot(fft):
     plt.plot(fft)
     plt.show()
@@ -38,6 +40,8 @@ def plot(fft):
 def callback(indata, outdata, frames, time, status):
     try:
         data = q.get_nowait()
+
+        sound_data_sent.append(data)
 
         # Capturing the sound that is being received        
         sound_data_received.append(indata)
@@ -99,7 +103,6 @@ def callback(indata, outdata, frames, time, status):
     else:
         outdata[:] = data.reshape((block_size, 1))
         # Capturing the sound that is being sent 
-        sound_data_sent.append(outdata)
     
 
 
@@ -220,7 +223,7 @@ scaled = None
 # wav.write("idk1.wav", fs, scaled[:,0])
 # print(fs)
 
-for i in range(50):
+for i in range(1):
     if scaled is None:
         scaled = np.array(w)
     else:
@@ -274,7 +277,7 @@ with sd.Stream(device=(1,2), samplerate=fs, dtype='float32', latency='low', chan
     # print(type(test[0]))
     event.wait()
     print(len(distances))
-    print(min(distances))
+    # print(min(distances))
     print(len(ffts))
     # for i in range (0, len(ffts), 5):
     #     plt.plot(ffts[i])
@@ -283,6 +286,9 @@ with sd.Stream(device=(1,2), samplerate=fs, dtype='float32', latency='low', chan
 
 
     ##### Checking the shape and structure of the input data
+
+    # plt.plot(data_fft[0])
+    # plt.show()
 
 
     fft_of_recevied_data = np.abs(np.fft.rfft(sound_data_received[0],axis=0))
@@ -297,6 +303,7 @@ with sd.Stream(device=(1,2), samplerate=fs, dtype='float32', latency='low', chan
     # print(sound_data_received[0])
 
     # Plotting the data that is being sent
+
     plt.plot(sound_data_received[0])
     plt.show()
 
@@ -308,6 +315,9 @@ with sd.Stream(device=(1,2), samplerate=fs, dtype='float32', latency='low', chan
 
     plt.plot(fft_of_sent_data)
     plt.show()
+
+
+
 # # print(fs)
 # with sd.InputStream(device=0, channels=1, callback=in_callback,
 #                         blocksize=int(fs * block_duration / 1000),
