@@ -79,5 +79,5 @@ with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', chan
     print(outdatas.shape)
     #print(outdatas)
     pairs = np.stack((np.array(indatas), np.array(outdatas)))
-    np.save("experiment-1.npy", pairs)
+    np.save("experiment-up-down-sweep-1.npy", pairs)
     
