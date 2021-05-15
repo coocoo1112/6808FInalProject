@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 #global scaled
 buff_size = 40
-block_size = 4800#960
+block_size = 4800
 q = queue.Queue(maxsize=buff_size)
 event = threading.Event()
 gain = 10
@@ -25,7 +25,10 @@ print(sd.query_devices())
 total_result = None
 distances = []
 ffts = []
+sub_ffts = []
 sent_data = []
+maximums = []
+maximums_no_sub = []
 
 def plot(fft):
     plt.plot(fft)
@@ -37,11 +40,14 @@ def callback(indata, outdata, frames, time, status):
     try:
         data = q.get_nowait()
         sent_data.append(data)
-        print("1", data.reshape((block_size, 1)).shape)
-        temp_fft = np.abs((np.fft.rfft(outdata.reshape((block_size, 1)), axis=0)))#/len(data)))
-        print("2",fftsize)
-        print("3",temp_fft.shape)
-        ffts.append(temp_fft)
+        try:
+            print("1", data.reshape((block_size, 1)).shape)
+            temp_fft = np.abs((np.fft.rfft(data.reshape((block_size, 1)), axis=0)))#/len(data)))
+            print("3",temp_fft.shape)
+            #ffts.append(temp_fft)
+        except:
+            pass
+        
     except queue.Empty as e:
         print('Buffer is empty: increase buffersize?', file=sys.stderr)
         raise sd.CallbackAbort from e
@@ -51,46 +57,65 @@ def callback(indata, outdata, frames, time, status):
         global fs
         global distances
         global T
-        #print(datetime.datetime.now() - start)
+        global maximums
+        global maximums_no_sub
+        global sub_ffts
+        ###  getting microphone input data from indata, taking the fft of it, and subtracting the prior fft from it
+
         multiplied = np.multiply(indata, outdata)
-        multiplied = indata
-        #print(indata.shape, outdata.shape, multiplied.shape)
+        non_subtracted_fft = None
+        #multiplied = indata
+        fft = None
         if previous is None:
-            subtracted_fft = np.fft.rfft(multiplied.reshape((block_size, 1))[:, 0], n=fftsize)#indata
+            subtracted_fft = np.fft.rfft(multiplied.reshape((block_size, 1))[:, 0])#, n=fftsize)#indata
+            non_subtracted_fft = subtracted_fft
             previous = subtracted_fft
         else:
-            fft = np.fft.rfft(multiplied[:, 0], n=fftsize)#indata
+            fft = np.fft.rfft(multiplied.reshape((block_size, 1))[:, 0])#, n=fftsize)#indata
+            non_subtracted_fft = fft
+            ffts.append(np.copy(fft))
             print("real", fft.shape)
             print("mult", multiplied.shape)
             subtracted_fft = np.subtract(fft, previous)
-            previous = fft
+            previous = np.copy(fft)
+            sub_ffts.append(np.copy(subtracted_fft))
             #plot(subtracted_fft)
-            print("4",fftsize)
             print("5",subtracted_fft.shape)
             
             
-        if total_result is None:
-            total_result = [subtracted_fft]
-        else:
-            total_result.append(subtracted_fft)
+        # if total_result is None:
+        #     total_result = [subtracted_fft]
+        # else:
+        #     total_result.append(subtracted_fft)
+
+        ###    getting distance measurements from subtracted fft   ###
         
-        freqs = np.fft.rfftfreq(len(subtracted_fft))
+        print("block size: ", block_size)
+        freqs = np.fft.rfftfreq(block_size)
         #print(subtracted_fft)
-        idx = find_peaks(subtracted_fft)#np.argmax(np.abs(subtracted_fft))
-        if len(idx[0]) != 0:
-            idx = idx[0][0]
-            #print(idx)
-            freq = freqs[idx]
-            freq_in_hertz = abs(freq * fs)
-            print("test", freq_in_hertz)
-            distance = freq_in_hertz * 343 * T / 6000#(high - low)
-            #print(distance)
-            distances.append(distance)
-            magnitude = np.abs(subtracted_fft)#np.fft.rfft(indata[:, 0], n=fftsize))
-            magnitude *= gain / fftsize
-            line = (gradient[int(np.clip(x, 0, 1) * (len(gradient) - 1))]
-                    for x in magnitude[low_bin:low_bin + columns])
-            print(*line, sep='', end='\x1b[0m\n')
+        idx = np.argmax(np.abs(subtracted_fft))#find_peaks(subtracted_fft)#
+        if fft is not None:
+            idx2 = np.argmax(np.abs(non_subtracted_fft))
+            freq2 = freqs[idx2]
+            freq_in_hertz2 = abs(freq2 * fs)
+            maximums_no_sub.append(freq_in_hertz2)
+        # if len(idx[0]) != 0:
+        #     idx = idx[0][0]
+        #     #print(idx)
+        freq = freqs[idx]
+        freq_in_hertz = abs(freq * fs)
+        print("fs: ", fs)
+        print("freq: ", freq)
+        print("test", freq_in_hertz)
+        maximums.append(freq_in_hertz)
+        distance = freq_in_hertz * 343 * T / 6000#(high - low)
+        #print(distance)
+        distances.append(distance)
+        magnitude = np.abs(subtracted_fft)#np.fft.rfft(indata[:, 0], n=fftsize))
+        magnitude *= gain / fftsize
+        line = (gradient[int(np.clip(x, 0, 1) * (len(gradient) - 1))]
+                for x in magnitude[low_bin:low_bin + columns])
+        print(*line, sep='', end='\x1b[0m\n')
     else:
         print('no input')
     if len(data) < len(outdata):
@@ -210,7 +235,7 @@ except AttributeError:
     columns = 80
 
 fs = 48000
-fs = int(sd.query_devices(0, 'input')['default_samplerate'])
+fs = int(sd.query_devices(1, 'input')['default_samplerate'])
 print(fs)
 T = .1
 t = np.linspace(0, T, int(T*fs), endpoint=False)
@@ -255,7 +280,7 @@ for _ in range(20):
     q.put_nowait(data)
 
 
-with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', channels=(1,1), callback=callback, blocksize=block_size, finished_callback=event.set):
+with sd.Stream(device=(1,2), samplerate=fs, dtype='float32', latency='low', channels=(1,1), callback=callback, blocksize=block_size, finished_callback=event.set):
     timeout = block_size * buff_size / fs
     while len(data) != 0:
         data = scaled[:min(block_size, len(scaled))]#,0]
@@ -277,10 +302,35 @@ with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', chan
     print(len(distances))
     print(min(distances))
     print(len(ffts))
-    for i in range (1, len(ffts), 25):
-        plt.plot(sent_data[i])
+    plt.plot(maximums)
+    plt.xlabel("sweep")
+    plt.title("maximum frequency peak for each input sweep subtracted from previous sweep")
+
+    plt.show()
+    plt.plot(maximums_no_sub)
+    plt.xlabel("sweep")
+    plt.title("maximum frequency peak for each input sweep with no subtraction")
+    plt.show()
+    for i in range (1, len(ffts)):
+        # plt.plot(sent_data[i])
+        # plt.show()
+        
+        freqs = np.fft.rfftfreq(block_size)#, d=1/fs)
+        print(freqs)
+        x_ticks = []
+        for idx in range(len(freqs)):
+            
+            freq_in_hertz = abs(freqs[idx] * fs)
+            x_ticks.append(freq_in_hertz)
+        #print(x_ticks)
+        plt.plot(x_ticks, ffts[i])
+        plt.title("non subtracted fft")
+        plt.xlabel("Frequency (Hz)")
         plt.show()
-        plt.plot(ffts[i])
+
+        plt.plot(x_ticks, sub_ffts[i])
+        plt.title("subtracted fft")
+        plt.xlabel("Frequency (Hz)")
         plt.show()
     plt.plot(distances)
     plt.show()
