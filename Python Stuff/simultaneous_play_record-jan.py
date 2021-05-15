@@ -62,14 +62,14 @@ def callback(indata, outdata, frames, time, status):
         # plot(indata)
         #print(indata.shape, outdata.shape, multiplied.shape)
         if previous is None:
-            subtracted_fft = np.fft.rfft(multiplied[:, 0], n=fftsize)#indata
+            subtracted_fft = np.fft.rfft(multiplied[:, 0])#, n=fftsize)#indata
             previous = subtracted_fft
         else:
             fft = np.fft.rfft(multiplied[:, 0], n=fftsize)#indata
             subtracted_fft = np.subtract(fft, previous)
             previous = fft
             #plot(subtracted_fft)
-            ffts.append(np.fft.rfft(data.reshape((block_size, 1))[:, 0], n=fftsize))
+            ffts.append(np.fft.rfft(data.reshape((block_size, 1))[:, 0]))#, n=fftsize))
             
         if total_result is None:
             total_result = [subtracted_fft]
@@ -212,7 +212,7 @@ except AttributeError:
     columns = 80
 
 fs = 48000
-fs = int(sd.query_devices(0, 'input')['default_samplerate'])
+fs = int(sd.query_devices(1, 'input')['default_samplerate'])
 print(fs)
 T = .1#.02
 t = np.linspace(0, T, int(T*fs), endpoint=False)
@@ -257,7 +257,7 @@ for _ in range(20):
     q.put_nowait(data)
 
 
-with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', channels=(1,2), callback=callback, blocksize=block_size, finished_callback=event.set):
+with sd.Stream(device=(1,2), samplerate=fs, dtype='float32', latency='low', channels=(1,2), callback=callback, blocksize=block_size, finished_callback=event.set):
     timeout = block_size * buff_size / fs
     while len(data) != 0:
         data = scaled[:min(block_size, len(scaled))]#,0]
