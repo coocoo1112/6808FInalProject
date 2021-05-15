@@ -33,8 +33,8 @@ def callback(indata, outdata, frames, time, status):
         raise sd.CallbackAbort from e
     if any(indata):
         if len(data) == 4800:
-            indatas.append(indata.reshape((block_size,)))
-            outdatas.append(data.reshape((block_size,)))
+            indatas.append(np.copy(indata.reshape((block_size,))))
+            outdatas.append(np.copy(data.reshape((block_size,))))
         
     else:
         print('no input')
