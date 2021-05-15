@@ -72,7 +72,7 @@ def callback(indata, outdata, frames, time, status):
             previous = subtracted_fft
         else:
             fft = np.fft.rfft(multiplied.reshape((block_size, 1))[:, 0])#, n=fftsize)#indata
-            non_subtracted_fft = fft
+            #non_subtracted_fft = fft
             ffts.append(np.copy(fft))
             print("real", fft.shape)
             print("mult", multiplied.shape)
