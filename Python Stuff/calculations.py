@@ -1,9 +1,7 @@
-import csv
+import numpy as np
 
 
-csv_name = "experiment.csv"
+np_name = "experiment-1.npy"
 
-with open(csv_name, newline='') as csvfile:
-    reader = csv.DictReader(csvfile)
-    for row in reader:
-        print(row.keys())
+arr = np.load(np_name)
+print(arr.shape)
