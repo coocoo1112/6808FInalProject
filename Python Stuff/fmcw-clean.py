@@ -1,6 +1,6 @@
 import sounddevice as sd
 import numpy as np
-from scipy.signal import chirp
+from scipy.signal import chirp, medfilt
 import queue
 import threading
 import sys
@@ -27,6 +27,7 @@ calibration_steps = 10
 window_range = None
 argmaxes = []
 distances = []
+argmax_distances = []
 
 
 def get_largest_n_mean(array, n):
@@ -34,6 +35,31 @@ def get_largest_n_mean(array, n):
 
 def moving_average(x, w):
     return np.convolve(x, np.ones(w), 'valid') / w
+
+def is_outlier(arr, new_val):
+    q75, q25 = np.percentile(arr, [75 ,25])
+    iqr = q75 - q25
+    low = q25 - 1.5 * iqr
+    high = q75 + 1.5 * iqr
+    if new_val < low or new_val > high:
+        return True
+    return False
+
+
+def get_distance_from_peak(idx, window_range_start, median_peak_location):
+    # use global values
+    return idx + window_range_start - median_peak_location
+
+def idx_to_distance(idx, freqs):
+    global T
+    FREQ_PER_FFT_BIN = freqs[1] - freqs[0]  # idk
+    SPEED_OF_SOUND = 343
+    CHIRP_LENGTH = T
+    FREQ_HIGH = 23000
+    FREQ_LOW = 17000
+    return idx * FREQ_PER_FFT_BIN * SPEED_OF_SOUND * CHIRP_LENGTH / (FREQ_HIGH - FREQ_LOW) / 2
+
+
 
 
 
@@ -44,6 +70,7 @@ def callback(indata, outdata, frames, time, status):
     global calibration_steps
     global window_range
     global argmaxes
+    global argmax_distances
     try:
         data = q.get_nowait()
         
@@ -62,23 +89,32 @@ def callback(indata, outdata, frames, time, status):
         # if step <= calibration_steps:
         first_peaks.append(np.argmax(np.abs(subtracted)))
         # elif step == calibration_steps + 1: #may need to increase this
-        PEAK_WINDOW_SIZE = 100
+        PEAK_WINDOW_SIZE = 50
         median_peak_location = int(np.median(first_peaks))
-        window_range = np.arange(median_peak_location - PEAK_WINDOW_SIZE / 2,
-                    median_peak_location + PEAK_WINDOW_SIZE / 2,
-                    dtype=np.int32)
+        window_range_start = median_peak_location
+        window_range = np.arange(window_range_start,        
+                         window_range_start + PEAK_WINDOW_SIZE,
+                         dtype=np.int32)
         if step > calibration_steps:
             subtracted_filtered = subtracted[window_range]
             argmax = np.argmax(np.abs(subtracted_filtered))
-            MEAN_WINDOW = 2
+            MEAN_WINDOW = 1
             mean_argmax = get_largest_n_mean(subtracted_filtered, MEAN_WINDOW)
+            adjustment = window_range[0]
+            #if not is_outlier(argmaxes, mean_argmax):
             argmaxes.append(mean_argmax)
-            print("MEAN: ", mean_argmax)
-            # freqs = np.fft.rfftfreq(len(subtracted_filtered))
-            # freq = freqs[int(mean_argmax)]
-            # freq_in_hertz = abs(freq * fs)
-            # distance = freq_in_hertz * 343 * .1 / 6000
-            # distances.append(distance)
+            med_filtered = medfilt(argmaxes, 7)
+            freqs = np.multiply(np.fft.rfftfreq(block_size), fs)
+            argmax_distances = np.apply_along_axis(get_distance_from_peak, 0, med_filtered, window_range_start, median_peak_location)
+            argmax_distances = np.apply_along_axis(idx_to_distance, 0, argmax_distances, freqs)
+
+            new_argmax = med_filtered[-1]
+            print("MEAN: ", new_argmax)
+            freqs = np.fft.rfftfreq(len(subtracted))
+            freq = freqs[int(new_argmax)]
+            freq_in_hertz = abs(freq * fs)
+            distance = freq_in_hertz * 343 * .1 / 6000
+            distances.append(distance)
 
 
 
@@ -125,8 +161,10 @@ with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', chan
         scaled = scaled[min(block_size, len(scaled)):]
         q.put(data, timeout=timeout)
     event.wait()
-    plt.plot(argmaxes)
+    print(distances)
+    plt.plot(argmaxes[3:])
     plt.show()
-    # plt.plot(distances)
-    # plt.show()
+    
+    plt.plot(moving_average(argmax_distances[3:], 7))
+    plt.show()
     
