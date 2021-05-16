@@ -57,7 +57,7 @@ def idx_to_distance(idx, freqs):
     CHIRP_LENGTH = T
     FREQ_HIGH = 23000
     FREQ_LOW = 17000
-    return idx * FREQ_PER_FFT_BIN * SPEED_OF_SOUND * CHIRP_LENGTH / (FREQ_HIGH - FREQ_LOW) / 2
+    return idx * FREQ_PER_FFT_BIN * SPEED_OF_SOUND * CHIRP_LENGTH / (FREQ_HIGH - FREQ_LOW) #/ 2
 
 
 
@@ -165,6 +165,6 @@ with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', chan
     plt.plot(argmaxes[3:])
     plt.show()
     
-    plt.plot(moving_average(argmax_distances[3:], 7))
+    plt.plot(moving_average(argmax_distances[3:], 3))
     plt.show()
     
