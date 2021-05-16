@@ -104,7 +104,9 @@ def callback(indata, outdata, frames, time, status):
         raise sd.CallbackAbort from e
     if any(indata):
         try:
-            multiplied = np.multiply(np.copy(indata), data.reshape((block_size, 1)))
+            temp_indata = butter_bandstop_filter(indata, 9000, 11000, 48000)
+            temp_outdata = butter_bandstop_filter(data, 9000, 11000, 48000)
+            multiplied = np.multiply(np.copy(temp_indata), temp_outdata.reshape((block_size, 1)))
         except:
             raise sd.CallbackStop
         fft = np.fft.rfft(multiplied.reshape((block_size, 1))[:, 0])
@@ -133,13 +135,13 @@ def callback(indata, outdata, frames, time, status):
             argmax_distances = np.apply_along_axis(get_distance_from_peak, 0, med_filtered, window_range_start, median_peak_location)
             argmax_distances = np.apply_along_axis(idx_to_distance, 0, argmax_distances, freqs)
 
-            new_argmax = med_filtered[-1]
-            print("MEAN: ", new_argmax)
-            freqs = np.fft.rfftfreq(len(subtracted))
-            freq = freqs[int(new_argmax)]
-            freq_in_hertz = abs(freq * fs)
-            distance = freq_in_hertz * 343 * .1 / 6000
-            distances.append(distance)
+            # new_argmax = med_filtered[-1]
+            # print("MEAN: ", new_argmax)
+            # freqs = np.fft.rfftfreq(len(subtracted))
+            # freq = freqs[int(new_argmax)]
+            # freq_in_hertz = abs(freq * fs)
+            # distance = freq_in_hertz * 343 * .1 / 6000
+            # distances.append(distance)
 
 
 
@@ -162,9 +164,9 @@ print(sd.query_devices())
 fs = int(sd.query_devices(0, 'input')['default_samplerate'])
 CONST_FREQ = 10000
 CHUNK = 4096
-tone_time = 5#4096 / 48000
+tone_time = 10#4096 / 48000
 t = np.linspace(0, tone_time, int(tone_time*fs))
-TONE = chirp(t, f0=CONST_FREQ, f1=CONST_FREQ, t1=5, method='linear').astype(np.float32)
+TONE = chirp(t, f0=CONST_FREQ, f1=CONST_FREQ, t1=10, method='linear').astype(np.float32)
 
 
 
@@ -181,18 +183,22 @@ for i in range(100):
         scaled = np.array(w)
     else:
         scaled = np.concatenate((scaled,w))
-out_tone = np.zeros(max(len(TONE), len(scaled)))
-for x in range(len(out_tone)):
-    if x < len(TONE) and x < len(scaled):
-        out_tone[x] = TONE[x] + scaled[x]
-    elif x < len(TONE):
-        out_tone[x] = TONE[x]
-    else:
-        out_tone[x] = scaled[x]
 
-scaled = np.copy(out_tone)
+scaled = np.add(scaled, TONE)
+# out_tone = np.zeros(max(len(TONE), len(scaled)))
+# for x in range(len(out_tone)):
+#     if x < len(TONE) and x < len(scaled):
+#         out_tone[x] = TONE[x] + scaled[x]
+#     elif x < len(TONE):
+#         out_tone[x] = TONE[x]
+#     else:
+#         out_tone[x] = scaled[x]
 
-scaled = butter_bandpass_filter(scaled, 9000, 11000, 48000)
+# scaled = np.copy(out_tone)
+
+#scaled = butter_bandpass_filter(scaled, 9000, 11000, 48000) #this works to leave only the constant tone
+#scaled = butter_bandstop_filter(scaled, 9000, 11000, 48000) #this works to only get the chirps
+#scaled = butter_bandstop_filter(scaled, 17000, 23000, 48000)
 
 #scaled = np.add(scaled, TONE)
 
@@ -210,9 +216,9 @@ with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', chan
         scaled = scaled[min(block_size, len(scaled)):]
         q.put(data, timeout=timeout)
     event.wait()
-    print(distances)
-    plt.plot(argmaxes[3:])
-    plt.show()
+    # print(distances)
+    # plt.plot(argmaxes[3:])
+    # plt.show()
     
     plt.plot(moving_average(argmax_distances[3:], 7))
     plt.show()
