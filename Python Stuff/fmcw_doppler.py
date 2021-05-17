@@ -20,7 +20,7 @@ event = threading.Event()
 
 indatas = []
 outdatas = []
-previous = None
+previous_fmcw = None
 step = 0
 first_peaks = []
 calibration_steps = 10
@@ -28,6 +28,28 @@ window_range = None
 argmaxes = []
 distances = []
 argmax_distances = []
+keep_going = True
+
+
+i=0
+f,ax = plt.subplots(1)
+
+x = np.arange(10000)
+y = np.random.randn(10000)
+
+# Plot 0 is for raw audio data
+li, = ax.plot(x, y)
+ax.set_xlim(0,400)
+ax.set_ylim(-2,2)
+ax.set_title("Distance Measurements")
+
+# li2, = ax[1].plot(x, y)
+# ax[1].set_xlim(0,1000)
+# ax[1].set_ylim(-100,100)
+# ax[1].set_title("Fast Fourier Transform")
+
+plt.pause(0.01)
+plt.tight_layout()
 
 
 def get_largest_n_mean(array, n):
@@ -85,17 +107,26 @@ def idx_to_distance(idx, freqs):
     return idx * FREQ_PER_FFT_BIN * SPEED_OF_SOUND * CHIRP_LENGTH / (FREQ_HIGH - FREQ_LOW) #/ 2
 
 
+def update_plot():
+    global argmax_distances
+    li.set_xdata(np.arange(len(argmax_distances)))
+    li.set_ydata(argmax_distances)
+    # li2.set_xdata(np.arange(10000))
+    # li2.set_ydata(np.random.randn(10000))
+    plt.draw()
+    plt.pause(0.001)
 
 
 
 def callback(indata, outdata, frames, time, status):
-    global previous
+    global previous_fmcw
     global step
     global first_peaks
     global calibration_steps
     global window_range
     global argmaxes
     global argmax_distances
+    global keep_going
     try:
         data = q.get_nowait()
         
@@ -104,17 +135,19 @@ def callback(indata, outdata, frames, time, status):
         raise sd.CallbackAbort from e
     if any(indata):
         try:
-            temp_indata = butter_bandstop_filter(indata, 9000, 11000, 48000)
-            temp_outdata = butter_bandstop_filter(data, 9000, 11000, 48000)
-            multiplied = np.multiply(np.copy(temp_indata), temp_outdata.reshape((block_size, 1)))
+            fmcw_indata = butter_bandstop_filter(indata, 9900, 10100, 48000)
+            fmcw_outdata = butter_bandstop_filter(data, 9900, 10100, 48000)
+            doppler_indata = scaled = butter_bandpass_filter(indata, 9900, 10100, 48000)
+            doppler_outdata = scaled = butter_bandpass_filter(data, 9900, 10100, 48000)
+            multiplied_fmcw = np.multiply(np.copy(fmcw_indata), fmcw_outdata.reshape((block_size, 1)))
         except:
             raise sd.CallbackStop
-        fft = np.fft.rfft(multiplied.reshape((block_size, 1))[:, 0])
-        subtracted = np.subtract(fft, previous) if previous is not None else fft
-        previous = np.copy(fft)
-        print(np.argmax(np.abs(subtracted)))
+        fft_fmcw = np.fft.rfft(multiplied_fmcw.reshape((block_size, 1))[:, 0])
+        subtracted_fmcw = np.subtract(fft_fmcw, previous_fmcw) if previous_fmcw is not None else fft_fmcw
+        previous_fmcw = np.copy(fft_fmcw)
+        print(np.argmax(np.abs(subtracted_fmcw)))
         # if step <= calibration_steps:
-        first_peaks.append(np.argmax(np.abs(subtracted)))
+        first_peaks.append(np.argmax(np.abs(subtracted_fmcw)))
         # elif step == calibration_steps + 1: #may need to increase this
         PEAK_WINDOW_SIZE = 50
         median_peak_location = int(np.median(first_peaks))
@@ -123,7 +156,7 @@ def callback(indata, outdata, frames, time, status):
                          window_range_start + PEAK_WINDOW_SIZE,
                          dtype=np.int32)
         if step > calibration_steps:
-            subtracted_filtered = subtracted[window_range]
+            subtracted_filtered = subtracted_fmcw[window_range]
             argmax = np.argmax(np.abs(subtracted_filtered))
             MEAN_WINDOW = 1
             mean_argmax = get_largest_n_mean(subtracted_filtered, MEAN_WINDOW)
@@ -134,6 +167,13 @@ def callback(indata, outdata, frames, time, status):
             freqs = np.multiply(np.fft.rfftfreq(block_size), fs)
             argmax_distances = np.apply_along_axis(get_distance_from_peak, 0, med_filtered, window_range_start, median_peak_location)
             argmax_distances = np.apply_along_axis(idx_to_distance, 0, argmax_distances, freqs)
+            #update_plot(argmax_distances)
+            # li.set_xdata(np.arange(len(argmax_distances)))
+            # li.set_ydata(argmax_distances)
+            # # li2.set_xdata(np.arange(10000))
+            # # li2.set_ydata(np.random.randn(10000))
+            # plt.draw()
+            # plt.pause(0.001)
 
             # new_argmax = med_filtered[-1]
             # print("MEAN: ", new_argmax)
@@ -150,6 +190,11 @@ def callback(indata, outdata, frames, time, status):
         # subtracted = np.subtract(fft, previous)
         # previous = np.copy(fft)
         # peak = np.argmax(subtracted)
+        
+        # if keep_going:
+        #     return True
+        # else:
+        #     return False
         step += 1
     else:
         print('no input')
@@ -196,8 +241,8 @@ scaled = np.add(scaled, TONE)
 
 # scaled = np.copy(out_tone)
 
-#scaled = butter_bandpass_filter(scaled, 9000, 11000, 48000) #this works to leave only the constant tone
-#scaled = butter_bandstop_filter(scaled, 9000, 11000, 48000) #this works to only get the chirps
+#scaled = butter_bandpass_filter(scaled, 9900, 10100, 48000) #this works to leave only the constant tone
+#scaled = butter_bandstop_filter(scaled, 9900, 10100, 48000) #this works to only get the chirps
 #scaled = butter_bandstop_filter(scaled, 17000, 23000, 48000)
 
 #scaled = np.add(scaled, TONE)
@@ -215,11 +260,16 @@ with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', chan
         data = scaled[:min(block_size, len(scaled))]#,0]
         scaled = scaled[min(block_size, len(scaled)):]
         q.put(data, timeout=timeout)
+        update_plot()
+    while not event.is_set():
+        update_plot()
+    event.wait()
+    print("done")
     event.wait()
     # print(distances)
     # plt.plot(argmaxes[3:])
     # plt.show()
     
-    plt.plot(moving_average(argmax_distances[3:], 7))
+    # plt.plot(moving_average(argmax_distances[3:], 7))
     plt.show()
     
