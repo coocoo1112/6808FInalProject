@@ -12,6 +12,7 @@ import scipy.io.wavfile as wav
 import json
 import matplotlib.pyplot as plt
 import copy
+from kalman_filter import get_position_update
 
 
 
@@ -38,6 +39,7 @@ doppler_distances = np.array([])
 doppler_calibration_ffts = []
 doppler_calibration_val = None
 doppler_velocity = 0
+kalman_distances = []
 
 DOPPLER_HANN_WINDOW = windows.hann(block_size)
 SAMPLE_RATE = 48000
@@ -48,7 +50,7 @@ DOPPLER_VELOCITY_THRESHOLD = 0.5    # higher = less sensitive, but lower noise
 DOPPLER_SMOOTHING_FACTOR   = 0.5    # between 0 and 1. higher = more smoothing, slower to react
 
 i=0
-f,ax = plt.subplots(3)
+f,ax = plt.subplots(4)
 
 x = np.arange(10000)
 y = np.random.randn(10000)
@@ -57,17 +59,22 @@ y = np.random.randn(10000)
 li, = ax[0].plot(x, y)
 ax[0].set_xlim(0,400)
 ax[0].set_ylim(-2,2)
-ax[0].set_title("Distance Measurements")
+ax[0].set_title("FMCW Distance Measurements")
 
 li2, = ax[1].plot(x, y)
 ax[1].set_xlim(0,400)
 ax[1].set_ylim(-20,20)
-ax[1].set_title("Doppler Distance")
+ax[1].set_title("Doppler Velocity")
 
 li3, = ax[2].plot(x, y)
 ax[2].set_xlim(0,400)
 ax[2].set_ylim(-20,20)
 ax[2].set_title("Doppler Distance")
+
+li4, = ax[3].plot(x, y)
+ax[3].set_xlim(0,400)
+ax[3].set_ylim(35,48)
+ax[3].set_title("Kalman Combined Distance")
 
 plt.pause(0.01)
 plt.tight_layout()
@@ -141,6 +148,8 @@ def update_plot():
     li2.set_ydata(doppler_velocities)
     li3.set_xdata(np.arange(len(doppler_distances)))
     li3.set_ydata(doppler_distances)
+    li4.set_xdata(np.arange(len(kalman_distances)))
+    li4.set_ydata(np.array(kalman_distances))
     # li2.set_xdata(np.arange(10000))
     # li2.set_ydata(np.random.randn(10000))
     plt.draw()
@@ -157,6 +166,7 @@ def callback(indata, outdata, frames, time, status):
     global argmaxes
     global argmax_distances
     global keep_going
+    global kalman_distances
     try:
         data = q.get_nowait()
         
@@ -175,7 +185,7 @@ def callback(indata, outdata, frames, time, status):
         fft_fmcw = np.fft.rfft(multiplied_fmcw.reshape((block_size, 1))[:, 0])
         subtracted_fmcw = np.subtract(fft_fmcw, previous_fmcw) if previous_fmcw is not None else fft_fmcw
         previous_fmcw = np.copy(fft_fmcw)
-        print(np.argmax(np.abs(subtracted_fmcw)))
+        #print(np.argmax(np.abs(subtracted_fmcw)))
         # if step <= calibration_steps:
         first_peaks.append(np.argmax(np.abs(subtracted_fmcw)))
         # elif step == calibration_steps + 1: #may need to increase this
@@ -261,7 +271,11 @@ def callback(indata, outdata, frames, time, status):
             global doppler_velocities, doppler_distances
             doppler_velocities = np.hstack((doppler_velocities, np.array([doppler_velocity])))
             doppler_distances = np.hstack((doppler_distances, np.array([(doppler_distances[-1] if len(doppler_distances) else 0) + doppler_velocity])))
-
+            interpolated_distance = get_position_update(argmax_distances[max(len(argmax_distances)-25, 0):], doppler_velocities[max(len(doppler_velocities) - 25, 0):])
+            kalman_distances.append(interpolated_distance.item())
+            #print(kalman_distances)
+            # print(np.array(kalman_distances).shape)
+            # print(np.array(kalman_distances)[:, 0, 0])
 
         # if previous is None:
         #     previous = np.copy(fft)
