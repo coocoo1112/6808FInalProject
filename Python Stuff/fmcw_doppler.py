@@ -58,7 +58,7 @@ y = np.random.randn(10000)
 # Plot 0 is for raw audio data
 li, = ax[0].plot(x, y)
 ax[0].set_xlim(0,400)
-ax[0].set_ylim(-2,2)
+ax[0].set_ylim(-.5,1)
 ax[0].set_title("FMCW Distance Measurements")
 
 li2, = ax[1].plot(x, y)
@@ -73,7 +73,7 @@ ax[2].set_title("Doppler Distance")
 
 li4, = ax[3].plot(x, y)
 ax[3].set_xlim(0,400)
-ax[3].set_ylim(35,48)
+ax[3].set_ylim(-.5,2)
 ax[3].set_title("Kalman Combined Distance")
 
 plt.pause(0.01)
@@ -271,7 +271,7 @@ def callback(indata, outdata, frames, time, status):
             global doppler_velocities, doppler_distances
             doppler_velocities = np.hstack((doppler_velocities, np.array([doppler_velocity])))
             doppler_distances = np.hstack((doppler_distances, np.array([(doppler_distances[-1] if len(doppler_distances) else 0) + doppler_velocity])))
-            interpolated_distance = get_position_update(argmax_distances[max(len(argmax_distances)-25, 0):], doppler_velocities[max(len(doppler_velocities) - 25, 0):])
+            interpolated_distance = get_position_update(argmax_distances[max(len(argmax_distances)-5, 0):], doppler_velocities[max(len(doppler_velocities) - 5, 0):])
             kalman_distances.append(interpolated_distance.item())
             #print(kalman_distances)
             # print(np.array(kalman_distances).shape)

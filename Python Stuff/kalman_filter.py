@@ -30,17 +30,17 @@ def covariance2d(sigma1, sigma2):
 def get_position_update(x_observations, v_observations):
     z = np.c_[x_observations, v_observations]
     # Initial Conditions
-    a = 2  # Acceleration
-    v = 280
+    a = 0  # Acceleration
+    v = 0
     t = 0.1  # Difference in time
 
     # Process / Estimation Errors
-    error_est_x = 20
-    error_est_v = 5
+    error_est_x = .1
+    error_est_v = .1
 
     # Observation Errors
-    error_obs_x = 25  # Uncertainty in the measurement
-    error_obs_v = 6
+    error_obs_x = .1  # Uncertainty in the measurement
+    error_obs_v = .1
     
     #initial covariance matrix estimation
     P = covariance2d(error_est_x, error_est_v)
