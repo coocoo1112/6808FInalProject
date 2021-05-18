@@ -42,6 +42,11 @@ doppler_velocity = 0
 DOPPLER_HANN_WINDOW = windows.hann(block_size)
 SAMPLE_RATE = 48000
 
+# Doppler tuning constants
+GAUSSIAN_SMOOTHING_SIGMA   = 4      # idk how much of an impact this has, anything from 1-5 seems to work
+DOPPLER_VELOCITY_THRESHOLD = 0.5    # higher = less sensitive, but lower noise
+DOPPLER_SMOOTHING_FACTOR   = 0.5    # between 0 and 1. higher = more smoothing, slower to react
+
 i=0
 f,ax = plt.subplots(3)
 
@@ -240,20 +245,18 @@ def callback(indata, outdata, frames, time, status):
                                             DOPPLER_WINDOW_BEGIN + DOPPLER_WINDOW]
 
             # gaussian smoothing -- NEEDS TUNING
-            GAUSSIAN_SMOOTHING_SIGMA = 4
             subtracted_fft = ndimage.gaussian_filter1d(subtracted_fft, GAUSSIAN_SMOOTHING_SIGMA)
 
             global doppler_velocity
             # NOTE: negative because + value is getting closer to speaker
             new_velocity = -(np.average(np.arange(len(subtracted_fft)), weights=subtracted_fft) - DOPPLER_WINDOW / 2)
 
-            # do some exponential smooothing
-            doppler_velocity = doppler_velocity * 0.5 + new_velocity * 0.5
-
             # clamp to 0 if it's under a certain threshold
-            VELOCITY_THRESHOLD = 0.5
-            if abs(doppler_velocity) < VELOCITY_THRESHOLD:
-                doppler_velocity = 0
+            if abs(new_velocity) < DOPPLER_VELOCITY_THRESHOLD:
+                new_velocity = 0
+
+            # do some exponential smooothing
+            doppler_velocity = doppler_velocity * (1 - DOPPLER_SMOOTHING_FACTOR) + new_velocity * DOPPLER_SMOOTHING_FACTOR
 
             global doppler_velocities, doppler_distances
             doppler_velocities = np.hstack((doppler_velocities, np.array([doppler_velocity])))
