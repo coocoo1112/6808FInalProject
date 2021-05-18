@@ -5,8 +5,9 @@ import matplotlib.pyplot as plt
 from scipy.io import wavfile
 import time
 import sys
-import seaborn as sn
 import scipy.signal as signal
+import scipy.ndimage as ndimage
+import copy
 
 
 i=0
@@ -19,12 +20,13 @@ y = np.random.randn(10000)
 # Plot 0 is for raw audio data
 li, = ax[0].plot(x, y)
 ax[0].set_xlim(0,1000)
-ax[0].set_ylim(-5000,5000)
+ax[0].set_ylim(0,500)
 ax[0].set_title("testing")
 # Plot 1 is for the FFT of the audio
 li2, = ax[1].plot(x, y)
-ax[1].set_xlim(0,1000)
+ax[1].set_xlim(0,30000)
 ax[1].set_ylim(-100,100)
+# ax[1].set_ylim(-1e-4,1e-4)
 ax[1].set_title("Fast Fourier Transform")
 
 li3, = ax[2].plot(x, y)
@@ -42,7 +44,7 @@ plt.tight_layout()
 
 FORMAT = pyaudio.paFloat32 # We use 16bit format per sample
 CHANNELS = 1
-RATE = 48000
+SAMPLE_RATE = 48000
 CHUNK = 4096
 # RECORD_SECONDS = 0.1
 # WAVE_OUTPUT_FILENAME = "file.wav"
@@ -57,7 +59,7 @@ TONE = signal.chirp(t, f0=FREQ, f1=FREQ, t1=4096 / 48000, method='linear').astyp
 # start Recording
 stream = audio.open(format=FORMAT,
                     channels=CHANNELS,
-                    rate=RATE,
+                    rate=SAMPLE_RATE,
                     input=True)#,
                     #frames_per_buffer=CHUNK)
 
@@ -92,6 +94,15 @@ def butter_bandstop_filter(data, lowcut, highcut, fs, order=5):
 
 doppler_vels = np.array([])
 doppler_distances = np.array([])
+previous_fft = None
+previous_ffts = []
+all_ffts = None
+
+# find index in `array` with value closest to `value`
+def find_nearest(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return idx
 
 def plot_data(in_data):
     # get and convert the data to float
@@ -100,36 +111,89 @@ def plot_data(in_data):
     # and make sure it's not imaginary
     # dfft = 10.*np.log10(abs(np.fft.rfft(audio_data)))
     # filter the d
-    print(audio_data.shape)
-    audio_data = butter_bandstop_filter(audio_data, 19900, 20100, 48000, order=6)
+    audio_data = butter_bandpass_filter(audio_data, 19000, 21000, 48000, order=6)
+    # audio_data = butter_bandstop_filter(audio_data, 19900, 20100, 48000, order=6)
+    audio_data = signal.hanning(len(audio_data)) * audio_data
     dfft = 10.*np.log10(abs(np.fft.rfft(audio_data)))
 
+    # normalize dfft
+    # dfft /= np.linalg.norm(dfft)
+    dfft /= np.amax(dfft)
+
+    # and subtract it from the previous frame
+    global previous_fft, all_ffts
+
+    # HACK wait after first frame so we can do subtraction
+    if previous_fft is None:
+        previous_fft = copy.deepcopy(dfft)
+        return
+
+    subtracted_fft = np.subtract(dfft, previous_fft)
+    # subtracted_fft = dfft
+    previous_fft = copy.deepcopy(dfft)
+
     # print(len(dfft))
-    dfft = dfft[1650:1750]
-    peaks = signal.find_peaks(dfft)[0]
+    # dfft = dfft[1650:1750]
+    # peaks = signal.find_peaks(dfft)[0]
 
-    print(len(peaks[peaks < 44]))
-    negative_peaks = len(peaks[peaks < 44])
-    print(len(peaks[peaks > 70]))
-    positive_peaks = len(peaks[peaks > 70])
+    # works better if we square the difference apparently
+    subtracted_fft = np.multiply(subtracted_fft, subtracted_fft)
+    
+    DOPPLER_WINDOW = 50    # window around the tone frequency to scan for doppler shifts
+    DOPPLER_FREQ   = 20000
+    DOPPLER_TONE_IDX = find_nearest(np.fft.rfftfreq(audio_data.shape[0], d=1/SAMPLE_RATE), DOPPLER_FREQ)
 
-    print(peaks)
+    DOPPLER_WINDOW_BEGIN = int(DOPPLER_TONE_IDX - DOPPLER_WINDOW // 2)
+    subtracted_fft = subtracted_fft[DOPPLER_WINDOW_BEGIN:
+                                    DOPPLER_WINDOW_BEGIN + DOPPLER_WINDOW]
+
+    # thresholding
+    # print(np.amax(subtracted_fft))
+    array_max = np.amax(subtracted_fft)
+    # subtracted_fft = subtracted_fft > array_max * 0.2
+
+    # # gaussian smoothing -- NEEDS TUNING
+    GAUSSIAN_SMOOTHING_SIGMA = 2
+    subtracted_fft = ndimage.gaussian_filter1d(subtracted_fft, GAUSSIAN_SMOOTHING_SIGMA)
+
+    if all_ffts is None:
+        all_ffts = np.array([subtracted_fft])
+    else:
+        all_ffts = np.vstack((all_ffts, np.array([subtracted_fft])))
+
+    try:
+        peaks = signal.find_peaks(subtracted_fft)[0]
+        negative_peaks = len(peaks[peaks < 40])
+        positive_peaks = len(peaks[peaks > 60])
+    except Exception as e:
+        print(e)
+
+    # print(peaks)
+    # positive_peaks = negative_peaks = 0
+    # velocity = (np.argmax(subtracted_fft) - 50) * 0.02
+    print(np.average(np.arange(len(subtracted_fft)), weights=subtracted_fft))
+    print(np.amax(subtracted_fft))
+    if np.amax(subtracted_fft) > 0.1:
+        velocity = np.average(np.arange(len(subtracted_fft)), weights=subtracted_fft) - 30
+    else:
+        velocity = 0
+
     global doppler_vels, doppler_distances
-    velocity = positive_peaks - negative_peaks
-    print("HI")
+    # velocity = positive_peaks - negative_peaks
     doppler_vels = np.hstack((doppler_vels, np.array([velocity])))
     doppler_distances = np.hstack((doppler_distances, np.array([(doppler_distances[-1] if len(doppler_distances) else 0) + velocity])))
-    print(doppler_distances)
+    # print(doppler_distances)
 
     # Force the new data into the plot, but without redrawing axes.
     # If uses plt.draw(), axes are re-drawn every time
     #print audio_data[0:10]
     #print dfft[0:10]
     #print
-    li.set_xdata(np.arange(len(audio_data)))
-    li.set_ydata(audio_data)
-    li2.set_xdata(np.arange(len(dfft))*10.)
-    li2.set_ydata(dfft)
+    li.set_xdata(np.arange(len(dfft)))
+    li.set_ydata(dfft)
+    li2.set_xdata(np.arange(len(subtracted_fft))*10.)
+    # li2.set_ydata(10*np.log10(subtracted_fft))
+    li2.set_ydata(subtracted_fft)
     li3.set_xdata(np.arange(len(doppler_vels)))
     li3.set_ydata(doppler_vels)
     li4.set_xdata(np.arange(len(doppler_distances)))
@@ -154,7 +218,12 @@ while keep_going:
     try:
         plot_data(stream.read(CHUNK, exception_on_overflow = False))
     except KeyboardInterrupt:
-        keep_going=False
+        # keep_going=False
+        print(all_ffts.shape)
+        plt.figure(2)
+        plt.pcolormesh(np.arange(all_ffts.shape[0]), np.arange(all_ffts.shape[1]), all_ffts.T, shading='gouraud')
+        plt.pause(100)
+        exit(0)
     except:
         pass
 
