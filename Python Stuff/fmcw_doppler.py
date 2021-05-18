@@ -137,8 +137,8 @@ def callback(indata, outdata, frames, time, status):
         try:
             fmcw_indata = butter_bandstop_filter(indata, 9900, 10100, 48000)
             fmcw_outdata = butter_bandstop_filter(data, 9900, 10100, 48000)
-            doppler_indata = scaled = butter_bandpass_filter(indata, 9900, 10100, 48000)
-            doppler_outdata = scaled = butter_bandpass_filter(data, 9900, 10100, 48000)
+            doppler_indata = butter_bandpass_filter(indata, 9900, 10100, 48000)
+            doppler_outdata = butter_bandpass_filter(data, 9900, 10100, 48000)
             multiplied_fmcw = np.multiply(np.copy(fmcw_indata), fmcw_outdata.reshape((block_size, 1)))
         except:
             raise sd.CallbackStop
@@ -209,7 +209,7 @@ print(sd.query_devices())
 fs = int(sd.query_devices(0, 'input')['default_samplerate'])
 CONST_FREQ = 10000
 CHUNK = 4096
-tone_time = 10#4096 / 48000
+tone_time = 20#4096 / 48000
 t = np.linspace(0, tone_time, int(tone_time*fs))
 TONE = chirp(t, f0=CONST_FREQ, f1=CONST_FREQ, t1=10, method='linear').astype(np.float32)
 
@@ -223,13 +223,13 @@ T = .1
 t = np.linspace(0, T, int(T*fs), endpoint=False)
 w = chirp(t, f0=17000, f1=23000, t1=T, method='linear').astype(np.float32)
 scaled = None
-for i in range(100):
+for i in range(200):
     if scaled is None:
         scaled = np.array(w)
     else:
         scaled = np.concatenate((scaled,w))
 
-scaled = np.add(scaled, TONE)
+scaled = np.add(scaled / 2, TONE / 2)
 # out_tone = np.zeros(max(len(TONE), len(scaled)))
 # for x in range(len(out_tone)):
 #     if x < len(TONE) and x < len(scaled):
