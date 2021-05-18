@@ -36,7 +36,7 @@ ax[2].set_title("Doppler velocity")
 
 li4, = ax[3].plot(x, y)
 ax[3].set_xlim(0,400)
-ax[3].set_ylim(-20, 20)
+ax[3].set_ylim(-200, 200)
 ax[3].set_title("Doppler position (integrated)")
 # Show the plot, but without blocking updates
 plt.pause(0.01)
@@ -97,6 +97,10 @@ doppler_distances = np.array([])
 previous_fft = None
 previous_ffts = []
 all_ffts = None
+steps = 0
+calibration_ffts = []
+calibration_val = None
+velocity = 0
 
 # find index in `array` with value closest to `value`
 def find_nearest(array, value):
@@ -113,7 +117,7 @@ def plot_data(in_data):
     # filter the d
     audio_data = butter_bandpass_filter(audio_data, 19000, 21000, 48000, order=6)
     # audio_data = butter_bandstop_filter(audio_data, 19900, 20100, 48000, order=6)
-    audio_data = signal.hanning(len(audio_data)) * audio_data
+    audio_data = signal.windows.hann(len(audio_data)) * audio_data
     dfft = 10.*np.log10(abs(np.fft.rfft(audio_data)))
 
     # normalize dfft
@@ -124,13 +128,23 @@ def plot_data(in_data):
     global previous_fft, all_ffts
 
     # HACK wait after first frame so we can do subtraction
-    if previous_fft is None:
-        previous_fft = copy.deepcopy(dfft)
-        return
-
-    subtracted_fft = np.subtract(dfft, previous_fft)
-    # subtracted_fft = dfft
     previous_fft = copy.deepcopy(dfft)
+
+    # if previous_fft is None:
+    #     return
+
+    global steps, calibration_val
+    steps += 1
+
+    if steps < 5:
+        calibration_ffts.append(previous_fft)
+        return
+    elif steps == 5:
+        calibration_val = np.average(np.array(calibration_ffts), axis=0)
+
+    # subtracted_fft = np.subtract(dfft, previous_fft)
+    subtracted_fft = np.subtract(dfft, calibration_val)
+    # subtracted_fft = dfft
 
     # print(len(dfft))
     # dfft = dfft[1650:1750]
@@ -153,7 +167,7 @@ def plot_data(in_data):
     # subtracted_fft = subtracted_fft > array_max * 0.2
 
     # # gaussian smoothing -- NEEDS TUNING
-    GAUSSIAN_SMOOTHING_SIGMA = 2
+    GAUSSIAN_SMOOTHING_SIGMA = 4
     subtracted_fft = ndimage.gaussian_filter1d(subtracted_fft, GAUSSIAN_SMOOTHING_SIGMA)
 
     if all_ffts is None:
@@ -161,22 +175,26 @@ def plot_data(in_data):
     else:
         all_ffts = np.vstack((all_ffts, np.array([subtracted_fft])))
 
-    try:
-        peaks = signal.find_peaks(subtracted_fft)[0]
-        negative_peaks = len(peaks[peaks < 40])
-        positive_peaks = len(peaks[peaks > 60])
-    except Exception as e:
-        print(e)
-
     # print(peaks)
     # positive_peaks = negative_peaks = 0
     # velocity = (np.argmax(subtracted_fft) - 50) * 0.02
     print(np.average(np.arange(len(subtracted_fft)), weights=subtracted_fft))
     print(np.amax(subtracted_fft))
-    if np.amax(subtracted_fft) > 0.1:
-        velocity = np.average(np.arange(len(subtracted_fft)), weights=subtracted_fft) - 30
-    else:
+    print("ratio: ", np.amax(subtracted_fft) / np.amin(subtracted_fft))
+    # if np.amax(subtracted_fft) > 0.1:
+
+    global velocity
+    new_velocity = np.average(np.arange(len(subtracted_fft)), weights=subtracted_fft) - DOPPLER_WINDOW / 2
+
+    # do some exponential smooothing
+    velocity = velocity * 0.5 + new_velocity * 0.5
+    # clamp to 0 if it's under a certain threshold
+    VELOCITY_THRESHOLD = 2.5
+    if abs(velocity) < VELOCITY_THRESHOLD:
         velocity = 0
+
+    # else:
+        # velocity = 0
 
     global doppler_vels, doppler_distances
     # velocity = positive_peaks - negative_peaks
