@@ -118,7 +118,7 @@ def plot_data(in_data):
     audio_data = butter_bandpass_filter(audio_data, 19000, 21000, 48000, order=6)
     # audio_data = butter_bandstop_filter(audio_data, 19900, 20100, 48000, order=6)
     audio_data = signal.windows.hann(len(audio_data)) * audio_data
-    dfft = 10.*np.log10(abs(np.fft.rfft(audio_data)))
+    dfft = abs(np.fft.rfft(audio_data))
 
     # normalize dfft
     # dfft /= np.linalg.norm(dfft)
@@ -189,7 +189,7 @@ def plot_data(in_data):
     # do some exponential smooothing
     velocity = velocity * 0.5 + new_velocity * 0.5
     # clamp to 0 if it's under a certain threshold
-    VELOCITY_THRESHOLD = 2.5
+    VELOCITY_THRESHOLD = 0.5
     if abs(velocity) < VELOCITY_THRESHOLD:
         velocity = 0
 

@@ -1,6 +1,7 @@
 import sounddevice as sd
 import numpy as np
-from scipy.signal import chirp, medfilt, butter, sosfilt, lfilter
+from scipy.signal import chirp, medfilt, butter, sosfilt, lfilter, windows
+import scipy.ndimage as ndimage
 import queue
 import threading
 import sys
@@ -10,6 +11,7 @@ import datetime
 import scipy.io.wavfile as wav
 import json
 import matplotlib.pyplot as plt
+import copy
 
 
 
@@ -30,23 +32,37 @@ distances = []
 argmax_distances = []
 keep_going = True
 
+# Doppler variables
+doppler_velocities = np.array([])
+doppler_distances = np.array([])
+doppler_calibration_ffts = []
+doppler_calibration_val = None
+doppler_velocity = 0
+
+DOPPLER_HANN_WINDOW = windows.hann(block_size)
+SAMPLE_RATE = 48000
 
 i=0
-f,ax = plt.subplots(1)
+f,ax = plt.subplots(3)
 
 x = np.arange(10000)
 y = np.random.randn(10000)
 
 # Plot 0 is for raw audio data
-li, = ax.plot(x, y)
-ax.set_xlim(0,400)
-ax.set_ylim(-2,2)
-ax.set_title("Distance Measurements")
+li, = ax[0].plot(x, y)
+ax[0].set_xlim(0,400)
+ax[0].set_ylim(-2,2)
+ax[0].set_title("Distance Measurements")
 
-# li2, = ax[1].plot(x, y)
-# ax[1].set_xlim(0,1000)
-# ax[1].set_ylim(-100,100)
-# ax[1].set_title("Fast Fourier Transform")
+li2, = ax[1].plot(x, y)
+ax[1].set_xlim(0,400)
+ax[1].set_ylim(-20,20)
+ax[1].set_title("Doppler Distance")
+
+li3, = ax[2].plot(x, y)
+ax[2].set_xlim(0,400)
+ax[2].set_ylim(-20,20)
+ax[2].set_title("Doppler Distance")
 
 plt.pause(0.01)
 plt.tight_layout()
@@ -106,11 +122,20 @@ def idx_to_distance(idx, freqs):
     FREQ_LOW = 17000
     return idx * FREQ_PER_FFT_BIN * SPEED_OF_SOUND * CHIRP_LENGTH / (FREQ_HIGH - FREQ_LOW) #/ 2
 
+# find index in `array` with value closest to `value`
+def find_nearest(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return idx
 
 def update_plot():
     global argmax_distances
     li.set_xdata(np.arange(len(argmax_distances)))
     li.set_ydata(argmax_distances)
+    li2.set_xdata(np.arange(len(doppler_velocities)))
+    li2.set_ydata(doppler_velocities)
+    li3.set_xdata(np.arange(len(doppler_distances)))
+    li3.set_ydata(doppler_distances)
     # li2.set_xdata(np.arange(10000))
     # li2.set_ydata(np.random.randn(10000))
     plt.draw()
@@ -155,6 +180,18 @@ def callback(indata, outdata, frames, time, status):
         window_range = np.arange(window_range_start,        
                          window_range_start + PEAK_WINDOW_SIZE,
                          dtype=np.int32)
+
+        # Doppler calibration
+        # doppler_indata = windows.hann(len(doppler_indata)) * doppler_indata
+        doppler_indata = np.squeeze(doppler_indata)
+        doppler_indata = np.multiply(DOPPLER_HANN_WINDOW, doppler_indata)
+        dfft = abs(np.fft.rfft(doppler_indata))
+
+        # normalize doppler fft
+        dfft /= np.amax(dfft)
+
+        doppler_calibration_ffts.append(copy.deepcopy(dfft))
+
         if step > calibration_steps:
             subtracted_filtered = subtracted_fmcw[window_range]
             argmax = np.argmax(np.abs(subtracted_filtered))
@@ -183,6 +220,44 @@ def callback(indata, outdata, frames, time, status):
             # distance = freq_in_hertz * 343 * .1 / 6000
             # distances.append(distance)
 
+            # calculate doppler shift
+            # global doppler_calibration_val
+            # TODO inefficient since it only needs to be calculated once
+            # not a huge deal though
+            doppler_calibration_val = np.average(np.array(doppler_calibration_ffts), axis=0)
+
+            subtracted_fft = np.subtract(dfft, doppler_calibration_val)
+
+            # works better if we square the difference apparently
+            subtracted_fft = np.multiply(subtracted_fft, subtracted_fft)
+
+            DOPPLER_WINDOW = 50    # window around the tone frequency to scan for doppler shifts
+            DOPPLER_FREQ   = 10000
+            DOPPLER_TONE_IDX = find_nearest(np.fft.rfftfreq(doppler_indata.shape[0], d=1/SAMPLE_RATE), DOPPLER_FREQ)
+
+            DOPPLER_WINDOW_BEGIN = int(DOPPLER_TONE_IDX - DOPPLER_WINDOW // 2)
+            subtracted_fft = subtracted_fft[DOPPLER_WINDOW_BEGIN:
+                                            DOPPLER_WINDOW_BEGIN + DOPPLER_WINDOW]
+
+            # gaussian smoothing -- NEEDS TUNING
+            GAUSSIAN_SMOOTHING_SIGMA = 4
+            subtracted_fft = ndimage.gaussian_filter1d(subtracted_fft, GAUSSIAN_SMOOTHING_SIGMA)
+
+            global doppler_velocity
+            # NOTE: negative because + value is getting closer to speaker
+            new_velocity = -(np.average(np.arange(len(subtracted_fft)), weights=subtracted_fft) - DOPPLER_WINDOW / 2)
+
+            # do some exponential smooothing
+            doppler_velocity = doppler_velocity * 0.5 + new_velocity * 0.5
+
+            # clamp to 0 if it's under a certain threshold
+            VELOCITY_THRESHOLD = 0.5
+            if abs(doppler_velocity) < VELOCITY_THRESHOLD:
+                doppler_velocity = 0
+
+            global doppler_velocities, doppler_distances
+            doppler_velocities = np.hstack((doppler_velocities, np.array([doppler_velocity])))
+            doppler_distances = np.hstack((doppler_distances, np.array([(doppler_distances[-1] if len(doppler_distances) else 0) + doppler_velocity])))
 
 
         # if previous is None:
@@ -272,4 +347,3 @@ with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', chan
     
     # plt.plot(moving_average(argmax_distances[3:], 7))
     plt.show()
-    
