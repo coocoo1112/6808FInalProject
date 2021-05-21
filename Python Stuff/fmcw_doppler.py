@@ -13,8 +13,9 @@ import json
 import matplotlib.pyplot as plt
 import copy
 from kalman_filter import get_position_update
+import time
 
-
+time.sleep(7)
 
 buff_size = 40
 block_size = 4800
@@ -57,23 +58,23 @@ y = np.random.randn(10000)
 
 # Plot 0 is for raw audio data
 li, = ax[0].plot(x, y)
-ax[0].set_xlim(0,400)
+ax[0].set_xlim(0,200)
 ax[0].set_ylim(-.5,1)
 ax[0].set_title("FMCW Distance Measurements")
 
 li2, = ax[1].plot(x, y)
-ax[1].set_xlim(0,400)
-ax[1].set_ylim(-20,20)
+ax[1].set_xlim(0,200)
+ax[1].set_ylim(-5,5)
 ax[1].set_title("Doppler Velocity")
 
 li3, = ax[2].plot(x, y)
-ax[2].set_xlim(0,400)
+ax[2].set_xlim(0,200)
 ax[2].set_ylim(-20,20)
 ax[2].set_title("Doppler Distance")
 
 li4, = ax[3].plot(x, y)
-ax[3].set_xlim(0,400)
-ax[3].set_ylim(-.5,2)
+ax[3].set_xlim(0,200)
+ax[3].set_ylim(-.5,1)
 ax[3].set_title("Kalman Combined Distance")
 
 plt.pause(0.01)
