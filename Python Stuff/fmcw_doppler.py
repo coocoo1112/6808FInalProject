@@ -1,27 +1,32 @@
 import sounddevice as sd
 import numpy as np
-from scipy.signal import chirp, medfilt, butter, sosfilt, lfilter, windows
+from scipy.signal import chirp, medfilt, butter, lfilter, windows
 import scipy.ndimage as ndimage
 import queue
 import threading
 import sys
-import shutil
-import math
-import datetime
-import scipy.io.wavfile as wav
-import json
 import matplotlib.pyplot as plt
 import copy
 from kalman_filter import get_position_update
-import time
 
-time.sleep(7)
+#this will print out the devices you have connected to handle output and their corresponding index
+print(sd.query_devices())
+#insert the device number corresponding to the microphone you want to use
+fs = int(sd.query_devices(0, 'input')['default_samplerate'])
+
+CONST_FREQ = 10000
+LOW_FREQ = 17000
+HIGH_FREQ = 23000
+sweep_period = .1
+tone_time = 20
+num_sweeps = int(tone_time / sweep_period)
+block_size = int(fs * sweep_period) #how big buffer fed into stream callback is
 
 buff_size = 40
-block_size = 4800
 q = queue.Queue(maxsize=buff_size)
 event = threading.Event()
 
+#initialize global variables
 indatas = []
 outdatas = []
 previous_fmcw = None
@@ -56,7 +61,7 @@ f,ax = plt.subplots(4)
 x = np.arange(10000)
 y = np.random.randn(10000)
 
-# Plot 0 is for raw audio data
+#initialize and fill initial plots
 li, = ax[0].plot(x, y)
 ax[0].set_xlim(0,200)
 ax[0].set_ylim(-.5,1)
@@ -112,11 +117,13 @@ def butter_bandstop(lowcut, highcut, fs, order=7):
 
 
 def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
+    #only lets through frequencys between lowcut and highcut
     b, a = butter_bandpass(lowcut, highcut, fs, order=order)
     y = lfilter(b, a, data)
     return y
 
 def butter_bandstop_filter(data, lowcut, highcut, fs, order=5):
+    #lets all frequencies through except between lowcut and highcut
     b, a = butter_bandstop(lowcut, highcut, fs, order=order)
     y = lfilter(b, a, data)
     return y
@@ -127,10 +134,10 @@ def get_distance_from_peak(idx, window_range_start, median_peak_location):
     return idx + window_range_start - median_peak_location
 
 def idx_to_distance(idx, freqs):
-    global T
+    #global T
     FREQ_PER_FFT_BIN = freqs[1] - freqs[0]  # idk
     SPEED_OF_SOUND = 343
-    CHIRP_LENGTH = T
+    CHIRP_LENGTH = sweep_period
     FREQ_HIGH = 23000
     FREQ_LOW = 17000
     return idx * FREQ_PER_FFT_BIN * SPEED_OF_SOUND * CHIRP_LENGTH / (FREQ_HIGH - FREQ_LOW) #/ 2
@@ -151,8 +158,6 @@ def update_plot():
     li3.set_ydata(doppler_distances)
     li4.set_xdata(np.arange(len(kalman_distances)))
     li4.set_ydata(np.array(kalman_distances))
-    # li2.set_xdata(np.arange(10000))
-    # li2.set_ydata(np.random.randn(10000))
     plt.draw()
     plt.pause(0.001)
 
@@ -179,17 +184,22 @@ def callback(indata, outdata, frames, time, status):
             fmcw_indata = butter_bandstop_filter(indata, 9900, 10100, 48000)
             fmcw_outdata = butter_bandstop_filter(data, 9900, 10100, 48000)
             doppler_indata = butter_bandpass_filter(indata, 9900, 10100, 48000)
-            doppler_outdata = butter_bandpass_filter(data, 9900, 10100, 48000)
             multiplied_fmcw = np.multiply(np.copy(fmcw_indata), fmcw_outdata.reshape((block_size, 1)))
         except:
             raise sd.CallbackStop
+
+        #get fft of sent tone * recieved tone
         fft_fmcw = np.fft.rfft(multiplied_fmcw.reshape((block_size, 1))[:, 0])
+
+        #subtract out previous frame and set current fft to previous
         subtracted_fmcw = np.subtract(fft_fmcw, previous_fmcw) if previous_fmcw is not None else fft_fmcw
         previous_fmcw = np.copy(fft_fmcw)
-        #print(np.argmax(np.abs(subtracted_fmcw)))
-        # if step <= calibration_steps:
+        
+        #Find largest peak in the subtracted fft
         first_peaks.append(np.argmax(np.abs(subtracted_fmcw)))
-        # elif step == calibration_steps + 1: #may need to increase this
+        
+        
+        #get median of all previous peaks to calculate assist with filtering out direct speaker->microphone path
         PEAK_WINDOW_SIZE = 50
         median_peak_location = int(np.median(first_peaks))
         window_range_start = median_peak_location
@@ -198,7 +208,6 @@ def callback(indata, outdata, frames, time, status):
                          dtype=np.int32)
 
         # Doppler calibration
-        # doppler_indata = windows.hann(len(doppler_indata)) * doppler_indata
         doppler_indata = np.squeeze(doppler_indata)
         doppler_indata = np.multiply(DOPPLER_HANN_WINDOW, doppler_indata)
         dfft = abs(np.fft.rfft(doppler_indata))
@@ -209,32 +218,22 @@ def callback(indata, outdata, frames, time, status):
         doppler_calibration_ffts.append(copy.deepcopy(dfft))
 
         if step > calibration_steps:
+            #after figuring out the correct peak location of speaker-> microphone path
+            #get actual peak of microphone->hand->speaker path
             subtracted_filtered = subtracted_fmcw[window_range]
-            argmax = np.argmax(np.abs(subtracted_filtered))
             MEAN_WINDOW = 1
             mean_argmax = get_largest_n_mean(subtracted_filtered, MEAN_WINDOW)
-            adjustment = window_range[0]
-            #if not is_outlier(argmaxes, mean_argmax):
             argmaxes.append(mean_argmax)
+
+            #take the median of the previous 7 values to help reduce impact of noise\
+            #7 is arbitrary, just found that it worked well
             med_filtered = medfilt(argmaxes, 7)
+
+            #calculations to go from peak locations to actual distance
             freqs = np.multiply(np.fft.rfftfreq(block_size), fs)
             argmax_distances = np.apply_along_axis(get_distance_from_peak, 0, med_filtered, window_range_start, median_peak_location)
             argmax_distances = np.apply_along_axis(idx_to_distance, 0, argmax_distances, freqs)
-            #update_plot(argmax_distances)
-            # li.set_xdata(np.arange(len(argmax_distances)))
-            # li.set_ydata(argmax_distances)
-            # # li2.set_xdata(np.arange(10000))
-            # # li2.set_ydata(np.random.randn(10000))
-            # plt.draw()
-            # plt.pause(0.001)
-
-            # new_argmax = med_filtered[-1]
-            # print("MEAN: ", new_argmax)
-            # freqs = np.fft.rfftfreq(len(subtracted))
-            # freq = freqs[int(new_argmax)]
-            # freq_in_hertz = abs(freq * fs)
-            # distance = freq_in_hertz * 343 * .1 / 6000
-            # distances.append(distance)
+            
 
             # calculate doppler shift
             # global doppler_calibration_val
@@ -269,25 +268,13 @@ def callback(indata, outdata, frames, time, status):
             # do some exponential smooothing
             doppler_velocity = doppler_velocity * (1 - DOPPLER_SMOOTHING_FACTOR) + new_velocity * DOPPLER_SMOOTHING_FACTOR
 
+            #use previous 5 values of doppler velocities and fmcw distance as input to the kalman filtering
+            #5 is arbitrary, just found it worked well 
             global doppler_velocities, doppler_distances
             doppler_velocities = np.hstack((doppler_velocities, np.array([doppler_velocity])))
             doppler_distances = np.hstack((doppler_distances, np.array([(doppler_distances[-1] if len(doppler_distances) else 0) + doppler_velocity])))
             interpolated_distance = get_position_update(argmax_distances[max(len(argmax_distances)-5, 0):], doppler_velocities[max(len(doppler_velocities) - 5, 0):])
             kalman_distances.append(interpolated_distance.item())
-            #print(kalman_distances)
-            # print(np.array(kalman_distances).shape)
-            # print(np.array(kalman_distances)[:, 0, 0])
-
-        # if previous is None:
-        #     previous = np.copy(fft)
-        # subtracted = np.subtract(fft, previous)
-        # previous = np.copy(fft)
-        # peak = np.argmax(subtracted)
-        
-        # if keep_going:
-        #     return True
-        # else:
-        #     return False
         step += 1
     else:
         print('no input')
@@ -298,48 +285,30 @@ def callback(indata, outdata, frames, time, status):
         raise sd.CallbackStop
     else:
         outdata[:] = data.reshape((block_size, 1))
-print(sd.query_devices())
-fs = int(sd.query_devices(0, 'input')['default_samplerate'])
-CONST_FREQ = 10000
-CHUNK = 4096
-tone_time = 20#4096 / 48000
-t = np.linspace(0, tone_time, int(tone_time*fs))
-TONE = chirp(t, f0=CONST_FREQ, f1=CONST_FREQ, t1=10, method='linear').astype(np.float32)
 
 
 
 
 
 
+#generate initial doppler and fmcw audio data
+fmcw_base = np.linspace(0, sweep_period, int(sweep_period*fs), endpoint=False)
+sweep = chirp(fmcw_base, f0=LOW_FREQ, f1=HIGH_FREQ, t1=sweep_period, method='linear').astype(np.float32)
+doppler_base = np.linspace(0, tone_time, int(tone_time*fs))
+TONE = chirp(doppler_base, f0=CONST_FREQ, f1=CONST_FREQ, t1=tone_time, method='linear').astype(np.float32)
 
-T = .1
-t = np.linspace(0, T, int(T*fs), endpoint=False)
-w = chirp(t, f0=17000, f1=23000, t1=T, method='linear').astype(np.float32)
-scaled = None
-for i in range(200):
-    if scaled is None:
-        scaled = np.array(w)
+#concatenate together individual fmcw sweeps to create continuous sawtooth audio data
+fmcw = None
+for i in range(num_sweeps):
+    if fmcw is None:
+        fmcw = np.array(sweep)
     else:
-        scaled = np.concatenate((scaled,w))
+        fmcw = np.concatenate((fmcw,sweep))
 
-scaled = np.add(scaled / 2, TONE / 2)
-# out_tone = np.zeros(max(len(TONE), len(scaled)))
-# for x in range(len(out_tone)):
-#     if x < len(TONE) and x < len(scaled):
-#         out_tone[x] = TONE[x] + scaled[x]
-#     elif x < len(TONE):
-#         out_tone[x] = TONE[x]
-#     else:
-#         out_tone[x] = scaled[x]
+#add together doppler and fmcw to create final tone
+scaled = np.add(fmcw / 2, TONE / 2)
 
-# scaled = np.copy(out_tone)
-
-#scaled = butter_bandpass_filter(scaled, 9900, 10100, 48000) #this works to leave only the constant tone
-#scaled = butter_bandstop_filter(scaled, 9900, 10100, 48000) #this works to only get the chirps
-#scaled = butter_bandstop_filter(scaled, 17000, 23000, 48000)
-
-#scaled = np.add(scaled, TONE)
-
+#prefill queue before stream starts
 for _ in range(20):
     data = scaled[:min(block_size, len(scaled))]#,0]
     if len(data) == 0:
@@ -347,21 +316,21 @@ for _ in range(20):
     scaled = scaled[min(block_size, len(scaled)):]
     q.put_nowait(data)
 
+#start stream
+#device is a tuple of (microphone device number, speaker device number)
+#channels is (microphone channels, speaker channels) but (1,1) seems to work for us
 with sd.Stream(device=(0,1), samplerate=fs, dtype='float32', latency='low', channels=(1,1), callback=callback, blocksize=block_size, finished_callback=event.set):
     timeout = block_size * buff_size / fs
     while len(data) != 0:
+        #continue filling queue while stream is playing
         data = scaled[:min(block_size, len(scaled))]#,0]
         scaled = scaled[min(block_size, len(scaled)):]
         q.put(data, timeout=timeout)
         update_plot()
     while not event.is_set():
+        #continue updating plot while the stream is playing
         update_plot()
+    #wait for stream to finish
     event.wait()
-    print("done")
-    event.wait()
-    # print(distances)
-    # plt.plot(argmaxes[3:])
-    # plt.show()
-    
-    # plt.plot(moving_average(argmax_distances[3:], 7))
+    #leave this in to keep showing plot after stream is done
     plt.show()
